@@ -595,7 +595,7 @@ export default function InventoryList() {
                       {[
                         "Product Code",
                         "Product Name",
-                        "Batch No",
+                        // "Batch No",
                         "Category",
                         "Unit",
                         "Location",
@@ -618,13 +618,13 @@ export default function InventoryList() {
                         <TableRow key={inv._id}>
                           <TableCell>{inv.productCode}</TableCell>
                           <TableCell>{getText(inv.productId?.name)}</TableCell>
-                          <TableCell>
+                          {/* <TableCell>
                             {inv.batchNo ? (
                               <Chip size="small" label={inv.batchNo} color="info" variant="outlined" />
                             ) : (
                               "—"
                             )}
-                          </TableCell>
+                          </TableCell> */}
 
                           <TableCell>
                             {getText(inv.productId?.category)}

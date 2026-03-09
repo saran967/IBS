@@ -619,7 +619,12 @@ export const getLowStockReport = async (req, res) => {
               else: {
                 $and: [
                   { $gt: ["$productDoc.minStockLevel", 0] },
-                  { $lt: ["$totalWeight", "$productDoc.minStockLevel"] }
+                  {
+                    $lt: [
+                      { $divide: ["$totalWeight", { $cond: { if: { $in: ["$baseUnitType", ["G", "ML"]] }, then: 1000, else: 1 } }] },
+                      "$productDoc.minStockLevel"
+                    ]
+                  }
                 ]
               }
             }

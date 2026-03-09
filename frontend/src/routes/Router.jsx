@@ -44,6 +44,9 @@ import VendorLedgertable from "../pages/Ledger/VendorLedgertable";
 import CustomerAnalytics from "../pages/Ledger/CustomerAnalytics";
 import MultiSales from "../pages/sales/MultiSales";
 import LowStockReport from "../pages/LowStockReport";
+import QuotationList from "../pages/quotations/QuotationList";
+import CreateQuotation from "../pages/quotations/CreateQuotation";
+import QuotationPrint from "../pages/quotations/QuotationPrint";
 
 import AndroidProductListPage from "../pages/Android/AndroidProductListPage";
 import AndroidOrderlistPage from "../pages/Android/AndroidOrderlistPage";
@@ -219,6 +222,24 @@ const router = createBrowserRouter([
         path: "sales/edit/:id",
         element: (
           <PermissionRoute moduleId="sales-create" element={<SalesCreate />} />
+        ),
+      },
+      {
+        path: "quotations",
+        element: (
+          <PermissionRoute moduleId="sales-list" element={<QuotationList />} />
+        ),
+      },
+      {
+        path: "quotations/create",
+        element: (
+          <PermissionRoute moduleId="sales-create" element={<CreateQuotation />} />
+        ),
+      },
+      {
+        path: "quotations/:id/print",
+        element: (
+          <PermissionRoute moduleId="sales-list" element={<QuotationPrint />} />
         ),
       },
       {

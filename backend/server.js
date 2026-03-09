@@ -68,6 +68,7 @@ import wishlistRoutes from "./routers/wishlist/wishlistRoutes.js";
 import incentiveRoutes from "./routers/Target/incentiveRoutes.js";
 import otpRoutes from "./routers/otpRoutes.js";
 import financialYearRouter from "./routers/financialYearRoutes.js";
+import quotationRouter from "./routers/quotationRoutes.js";
 
 import errorHandlerMiddleware from "./middleware/errorHandlerMiddleware.js";
 
@@ -108,6 +109,7 @@ app.use("/api/v1/wishlist", wishlistRoutes);
 app.use("/api/v1/incentive", incentiveRoutes);
 app.use("/api/v1/otp", otpRoutes);
 app.use("/api/v1/financial-years", financialYearRouter);
+app.use("/api/v1/quotations", quotationRouter);
 
 app.use(errorHandlerMiddleware);
 

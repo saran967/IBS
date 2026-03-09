@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import { Download, Refresh } from "@mui/icons-material";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import customFetch from "../utils/customFetch";
 import { toast } from "react-toastify";
 import { useLanguage } from "../context/LanguageContext";
@@ -94,7 +94,7 @@ export default function LowStockReport() {
             tableRows.push(row);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: 25,

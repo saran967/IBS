@@ -559,8 +559,8 @@ export default function PurchaseForm({ onSuccess }) {
             <TextField
               label={
                 purchaseType === "SKU"
-                  ? "Unit Price (₹ per pack) (Alt+P)"
-                  : `Unit Price (₹ per ${getUiUnitLabel(product)}) (Alt+P)`
+                  ? "Unit Price (₹ per pack) "
+                  : `Unit Price (₹ per ${getUiUnitLabel(product)}) `
               }
               name="unitPrice"
               type="number"

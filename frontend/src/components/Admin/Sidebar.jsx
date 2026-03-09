@@ -395,6 +395,25 @@ export default function Sidebar({ open, setOpen }) {
                       {open && <ListItemText primary="Sales List" />}
                     </ListItemButton>
                   )}
+                  {hasPermission("sales-list") && (
+                    <ListItemButton
+                      component={Link}
+                      to={`/${userLang}/admin/quotations`}
+                      onClick={isMobile ? () => setOpen(false) : undefined}
+                      sx={{
+                        borderRadius: 1.5,
+                        py: 1.1,
+                        "&:hover": { backgroundColor: "#14224A" },
+                      }}
+                    >
+                      <ListItemIcon
+                        sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
+                      >
+                        <MdReceipt />
+                      </ListItemIcon>
+                      {open && <ListItemText primary="Quotations" />}
+                    </ListItemButton>
+                  )}
                 </List>
               </Collapse>
             </>
