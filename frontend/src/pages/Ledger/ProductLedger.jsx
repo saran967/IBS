@@ -28,6 +28,10 @@ import {
 
 import { ArrowBackIos, ArrowForwardIos } from "@mui/icons-material";
 import customFetch from "../../utils/customFetch.js";
+import { toast } from "react-toastify";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const COLORS = [
   "#0088FE",
@@ -123,12 +127,114 @@ export default function AnalyticsDashboard() {
     setPage((p) => Math.min(p + 1, maxPage));
   };
 
+  const exportExcel = () => {
+    if (!ledger.length) {
+      toast.warning("No product ledger data to export");
+      return;
+    }
+
+    const summaryRows = [
+      {
+        Metric: "Purchase Total",
+        Value: pieData.find((p) => p.name === "Purchase")?.value || 0,
+      },
+      {
+        Metric: "Sales Total",
+        Value: pieData.find((p) => p.name === "Sales")?.value || 0,
+      },
+    ];
+
+    const stockRows = inventoryData.map((row) => ({
+      Product: row.name,
+      Stock: row.stock,
+    }));
+
+    const soldRows = topSelling.map((row, index) => ({
+      "S.No": index + 1,
+      Product: row.product,
+      "Qty Sold": row.quantity,
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(summaryRows),
+      "Summary",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(stockRows),
+      "Stock By Product",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(soldRows),
+      "Top Sold",
+    );
+
+    XLSX.writeFile(workbook, "Product_Ledger.xlsx");
+  };
+
+  const exportPDF = () => {
+    if (!ledger.length) {
+      toast.warning("No product ledger data to export");
+      return;
+    }
+
+    const purchaseTotal = pieData.find((p) => p.name === "Purchase")?.value || 0;
+    const salesTotal = pieData.find((p) => p.name === "Sales")?.value || 0;
+
+    const doc = new jsPDF("landscape");
+    doc.setFontSize(14);
+    doc.text("Product Ledger Analytics", 14, 14);
+
+    autoTable(doc, {
+      startY: 20,
+      head: [["Metric", "Value"]],
+      body: [
+        ["Purchase Total", purchaseTotal],
+        ["Sales Total", salesTotal],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [66, 66, 66] },
+    });
+
+    const stockStartY = (doc.lastAutoTable?.finalY || 20) + 8;
+    autoTable(doc, {
+      startY: stockStartY,
+      head: [["Product", "Stock"]],
+      body: inventoryData.map((row) => [row.name, row.stock]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 66, 66] },
+    });
+
+    const soldStartY = (doc.lastAutoTable?.finalY || stockStartY) + 8;
+    autoTable(doc, {
+      startY: soldStartY,
+      head: [["S.No", "Product", "Qty Sold"]],
+      body: topSelling.map((row, index) => [index + 1, row.product, row.quantity]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 66, 66] },
+    });
+
+    doc.save("Product_Ledger.pdf");
+  };
+
   // ================= UI =================
   return (
     <Box p={2}>
       <Typography variant="h5" mb={2} fontWeight={700} textAlign="center">
         Inventory & Sales Analytics
       </Typography>
+
+      <Box mb={2} display="flex" justifyContent="flex-end" gap={1} flexWrap="wrap">
+        <Button variant="outlined" onClick={exportExcel}>
+          Export Excel
+        </Button>
+        <Button variant="outlined" color="error" onClick={exportPDF}>
+          Export PDF
+        </Button>
+      </Box>
 
       {/* TOP GRID */}
       <Box

@@ -6,6 +6,7 @@ import {
   CircularProgress,
   Typography,
   Grid,
+  Button,
   useMediaQuery,
   useTheme,
 } from "@mui/material";
@@ -26,6 +27,9 @@ import {
 import { toast } from "react-toastify";
 import customFetch from "../../utils/customFetch";
 import getLocalizedText from "../../utils/getLocalizedText";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#d0ed57"];
 
@@ -110,6 +114,111 @@ const CustomerAnalytics = () => {
     [b2cTrend],
   );
 
+  const exportExcel = () => {
+    const hasData =
+      Number(overall.totalGross || 0) > 0 ||
+      safeTopB2B.length > 0 ||
+      formattedTrend.length > 0;
+
+    if (!hasData) {
+      toast.warning("No customer ledger data to export");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet([
+        {
+          "Total Gross": Number(overall.totalGross || 0),
+          "Total Paid": Number(overall.totalPaid || 0),
+          "Total Balance": Number(overall.totalBalance || 0),
+        },
+      ]),
+      "Summary",
+    );
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(
+        safeTopB2B.map((row, index) => ({
+          "S.No": index + 1,
+          Customer: row.name || "-",
+          Gross: Number(row.totalGross || 0),
+        })),
+      ),
+      "Top B2B",
+    );
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(
+        formattedTrend.map((row) => ({
+          Month: row.month,
+          Gross: Number(row.totalGross || 0),
+        })),
+      ),
+      "Monthly B2C",
+    );
+
+    XLSX.writeFile(workbook, "Customer_Ledger.xlsx");
+  };
+
+  const exportPDF = () => {
+    const hasData =
+      Number(overall.totalGross || 0) > 0 ||
+      safeTopB2B.length > 0 ||
+      formattedTrend.length > 0;
+
+    if (!hasData) {
+      toast.warning("No customer ledger data to export");
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(14);
+    doc.text("Customer Ledger Analytics", 14, 14);
+
+    autoTable(doc, {
+      startY: 20,
+      head: [["Total Gross", "Total Paid", "Total Balance"]],
+      body: [
+        [
+          Number(overall.totalGross || 0),
+          Number(overall.totalPaid || 0),
+          Number(overall.totalBalance || 0),
+        ],
+      ],
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [66, 66, 66] },
+    });
+
+    const topB2BStartY = (doc.lastAutoTable?.finalY || 20) + 8;
+    autoTable(doc, {
+      startY: topB2BStartY,
+      head: [["S.No", "Customer", "Gross"]],
+      body: safeTopB2B.map((row, index) => [
+        index + 1,
+        row.name || "-",
+        Number(row.totalGross || 0),
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 66, 66] },
+    });
+
+    const trendStartY = (doc.lastAutoTable?.finalY || topB2BStartY) + 8;
+    autoTable(doc, {
+      startY: trendStartY,
+      head: [["Month", "Gross"]],
+      body: formattedTrend.map((row) => [row.month, Number(row.totalGross || 0)]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 66, 66] },
+    });
+
+    doc.save("Customer_Ledger.pdf");
+  };
+
   /* ---------------- LOADING / EMPTY ---------------- */
   if (loading)
     return (
@@ -136,6 +245,23 @@ const CustomerAnalytics = () => {
       >
         📊 Customer Analytics Dashboard
       </Typography>
+
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 1,
+          flexWrap: "wrap",
+        }}
+      >
+        <Button variant="outlined" onClick={exportExcel}>
+          Export Excel
+        </Button>
+        <Button variant="outlined" color="error" onClick={exportPDF}>
+          Export PDF
+        </Button>
+      </Box>
 
       <Grid
         container

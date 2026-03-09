@@ -108,6 +108,7 @@ export default function PurchaseList() {
   const [purchases, setPurchases] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [batchQuery, setBatchQuery] = useState("");
   const language = useLanguage();
 
   // shops & godowns maps
@@ -229,16 +230,22 @@ export default function PurchaseList() {
     fetchPurchases();
   }, []);
 
-  // filter purchases by search query
+  // filter purchases by search query + separate batch filter
   const filteredPurchases = purchases.filter((p) => {
-    if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    if (p.productId?.productCode?.toLowerCase().includes(q)) return true;
-    if (p.productId?.name?.en?.toLowerCase().includes(q)) return true;
-    if (p.productId?.name?.ta?.toLowerCase().includes(q)) return true;
-    if (getSearchText(p.vendorId?.name).includes(q)) return true;
+    const bq = batchQuery.toLowerCase();
 
-    return false;
+    const matchesGeneralSearch =
+      !q ||
+      p.productId?.productCode?.toLowerCase().includes(q) ||
+      p.productId?.name?.en?.toLowerCase().includes(q) ||
+      p.productId?.name?.ta?.toLowerCase().includes(q) ||
+      getSearchText(p.vendorId?.name).includes(q);
+
+    const matchesBatchSearch =
+      !bq || String(p.batchNo || "").toLowerCase().includes(bq);
+
+    return matchesGeneralSearch && matchesBatchSearch;
   });
 
   const totalPages = Math.ceil(filteredPurchases.length / limit);
@@ -267,7 +274,7 @@ export default function PurchaseList() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, batchQuery]);
 
   // format split label using real names
   const handlePrintBarcode = (p) => {
@@ -563,13 +570,33 @@ export default function PurchaseList() {
           </Button>
         </Box>
 
-        <Box mb={2}>
+        <Box
+          mb={2}
+          display="flex"
+          flexDirection={isMobile ? "column" : "row"}
+          gap={1.5}
+        >
           <TextField
             fullWidth
             variant="outlined"
             placeholder={t("searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+            size={isMobile ? "small" : "medium"}
+          />
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Search by batch no..."
+            value={batchQuery}
+            onChange={(e) => setBatchQuery(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">

@@ -32,6 +32,9 @@ import { Delete, Refresh, Search } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import customFetch from "../../utils/customFetch";
 import { useParams } from "react-router-dom";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function InventoryList() {
   const [inventory, setInventory] = useState([]);
@@ -378,6 +381,105 @@ export default function InventoryList() {
     return "—";
   };
 
+  const getStockSummary = (inv) => {
+    const baseType = getBaseType(inv);
+    const parts = [];
+
+    if (Number(inv.totalPacks || 0) > 0 || Number(inv.remainingPacks || 0) > 0) {
+      parts.push(
+        `Packs: ${Number(inv.remainingPacks || 0)} / ${Number(inv.totalPacks || 0)}`,
+      );
+    }
+
+    if (
+      Number(inv.totalWeight || 0) > 0 ||
+      Number(inv.remainingWeight || 0) > 0
+    ) {
+      parts.push(
+        `Qty: ${toUiQty(inv.remainingWeight, baseType).toFixed(3)} ${getUiUnitLabel(baseType)} / ${toUiQty(inv.totalWeight, baseType).toFixed(3)} ${getUiUnitLabel(baseType)}`,
+      );
+    }
+
+    return parts.length ? parts.join(" | ") : "No Stock";
+  };
+
+  const getStockStatus = (inv) => {
+    if (isNegativeStock(inv)) return "Negative Stock";
+    if (isLowStock(inv)) return "Low Stock";
+    return "OK";
+  };
+
+  const buildExportRows = () =>
+    filteredInventory.map((inv) => ({
+      "Product Code": inv.productCode || "-",
+      "Product Name": getText(inv.productId?.name),
+      Category: getText(inv.productId?.category),
+      Unit: getText(inv.productId?.unit),
+      Location: inv.shopId
+        ? `${getLocationName(inv)} (Shop)`
+        : `${getLocationName(inv)} (Godown)`,
+      "Stock Summary": getStockSummary(inv),
+      Date: inv.createdAt
+        ? new Date(inv.createdAt).toLocaleDateString("en-IN")
+        : "-",
+      Stock: getStockStatus(inv),
+    }));
+
+  const exportInventoryExcel = () => {
+    const rows = buildExportRows();
+    if (!rows.length) {
+      toast.warning("No inventory records to export");
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
+    XLSX.writeFile(workbook, "Inventory_Management.xlsx");
+  };
+
+  const exportInventoryPDF = () => {
+    const rows = buildExportRows();
+    if (!rows.length) {
+      toast.warning("No inventory records to export");
+      return;
+    }
+
+    const doc = new jsPDF("landscape");
+    doc.setFontSize(14);
+    doc.text("Inventory Management", 14, 14);
+
+    autoTable(doc, {
+      startY: 20,
+      head: [
+        [
+          "Product Code",
+          "Product Name",
+          "Category",
+          "Unit",
+          "Location",
+          "Stock Summary",
+          "Date",
+          "Stock",
+        ],
+      ],
+      body: rows.map((r) => [
+        r["Product Code"],
+        r["Product Name"],
+        r.Category,
+        r.Unit,
+        r.Location,
+        r["Stock Summary"],
+        r.Date,
+        r.Stock,
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [66, 66, 66] },
+    });
+
+    doc.save("Inventory_Management.pdf");
+  };
+
   // ---------------- Delete ----------------
   const handleDelete = async (id) => {
     try {
@@ -574,6 +676,14 @@ export default function InventoryList() {
           onClick={fetchInventory}
         >
           Refresh
+        </Button>
+
+        <Button variant="outlined" onClick={exportInventoryExcel}>
+          Export Excel
+        </Button>
+
+        <Button variant="outlined" color="error" onClick={exportInventoryPDF}>
+          Export PDF
         </Button>
       </Paper>
 
