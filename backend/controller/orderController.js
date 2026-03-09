@@ -26,8 +26,11 @@ export const createOrder = async (req, res) => {
     const user = req.user;
     const isAdmin = user?.role === "admin";
     const body = req.body;
+    console.log("createOrder body:", JSON.stringify(body, null, 2));
     const activeFY = await getActiveFinancialYear();
-
+    if (!activeFY) {
+      return res.status(400).json({ msg: "No active financial year found. Please activate one first." });
+    }
 
     // Normalize to array
     const ordersArray = Array.isArray(body) ? body : [body];
@@ -51,6 +54,7 @@ export const createOrder = async (req, res) => {
       for (const item of order.orderItems || []) {
         const orderItem = {
           shopId: item.shopId,
+          godownId: item.godownId || null,
           productId: item.productId,
           status: "Pending",
           quantity: item.quantity ?? 0,
@@ -98,7 +102,7 @@ export const createOrder = async (req, res) => {
           .json({ msg: "Missing required fields for one of the orders" });
       }
 
-     const orderNumber = await generateOrderNumber(activeFY._id);
+      const orderNumber = await generateOrderNumber(activeFY._id);
 
 
       const newOrder = new Order({
@@ -125,8 +129,8 @@ export const createOrder = async (req, res) => {
       orders: createdOrders,
     });
   } catch (error) {
-    console.error("createOrder error:", error);
-    return res.status(500).json({ msg: "Server error", error: error.message });
+    console.error("createOrder error full:", error);
+    return res.status(500).json({ msg: "Server error", detail: error.message, stack: error.stack });
   }
 };
 
@@ -139,6 +143,10 @@ export const approveOrderRequest = async (req, res) => {
 
   try {
     const activeFY = await getActiveFinancialYear();
+    if (!activeFY) {
+      await session.abortTransaction();
+      return res.status(400).json({ msg: "No active financial year found." });
+    }
 
 
     const user = req.user;
@@ -150,9 +158,9 @@ export const approveOrderRequest = async (req, res) => {
 
     const { orderId } = req.params;
     const order = await Order.findOne({
-  _id: orderId,
-  financialYearId: activeFY._id,
-}).session(session);
+      _id: orderId,
+      financialYearId: activeFY._id,
+    }).session(session);
 
     if (!order) {
       await session.abortTransaction();
@@ -188,6 +196,7 @@ export const approveOrderRequest = async (req, res) => {
 export const editPickupDate = async (req, res) => {
   try {
     const activeFY = await getActiveFinancialYear();
+    if (!activeFY) return res.status(400).json({ msg: "No active financial year found." });
 
     const user = req.user;
     const { orderId } = req.params;
@@ -196,9 +205,9 @@ export const editPickupDate = async (req, res) => {
       return res.status(400).json({ msg: "pickupDate required" });
 
     const order = await Order.findOne({
-  _id: orderId,
-  financialYearId: activeFY._id,
-});
+      _id: orderId,
+      financialYearId: activeFY._id,
+    });
 
     if (!order) return res.status(404).json({ msg: "Order not found" });
 
@@ -229,12 +238,16 @@ export const confirmOrder = async (req, res) => {
 
   try {
     const activeFY = await getActiveFinancialYear();
+    if (!activeFY) {
+      await session.abortTransaction();
+      return res.status(400).json({ msg: "No active financial year found." });
+    }
 
     const { orderId } = req.params;
     const order = await Order.findOne({
-  _id: orderId,
-  financialYearId: activeFY._id,
-}).session(session);
+      _id: orderId,
+      financialYearId: activeFY._id,
+    }).session(session);
 
     if (!order) return res.status(404).json({ msg: "Order not found" });
 
@@ -258,24 +271,24 @@ export const confirmOrder = async (req, res) => {
 
       item.price = Number(item.price) || 0;
 
-     const inv = await Inventory.findOne({
-  financialYearId: activeFY._id,
-  productId: item.productId,
-  shopId: item.shopId,
-  godownId: null,
-}).session(session);
+      const inv = await Inventory.findOne({
+        financialYearId: activeFY._id,
+        productId: item.productId,
+        shopId: item.shopId,
+        godownId: item.godownId || null,
+      }).session(session);
 
-// Use packs first (order quantity is pack/count oriented here)
-const availableQty = Number(inv?.remainingPacks ?? 0);
+      // Use packs first (order quantity is pack/count oriented here)
+      const availableQty = Number(inv?.remainingPacks ?? 0);
 
-if (!inv || availableQty < Number(totalQuantity || 0)) {
-  item.status = "Pending";
-} else {
-  inv.remainingPacks = availableQty - Number(totalQuantity || 0);
-  inv.lastUpdated = new Date();
-  await inv.save({ session });
-  item.status = "Fulfilled";
-}
+      if (!inv || availableQty < Number(totalQuantity || 0)) {
+        item.status = "Pending";
+      } else {
+        inv.remainingPacks = availableQty - Number(totalQuantity || 0);
+        inv.lastUpdated = new Date();
+        await inv.save({ session });
+        item.status = "Fulfilled";
+      }
 
     }
 
@@ -305,12 +318,16 @@ export const cancelOrder = async (req, res) => {
 
   try {
     const activeFY = await getActiveFinancialYear();
+    if (!activeFY) {
+      await session.abortTransaction();
+      return res.status(400).json({ msg: "No active financial year found." });
+    }
 
     const { orderId } = req.params;
     const order = await Order.findOne({
-  _id: orderId,
-  financialYearId: activeFY._id,
-}).session(session);
+      _id: orderId,
+      financialYearId: activeFY._id,
+    }).session(session);
 
     if (!order) return res.status(404).json({ msg: "Order not found" });
 
@@ -325,18 +342,18 @@ export const cancelOrder = async (req, res) => {
 
       if (item.status === "Fulfilled") {
         await Inventory.findOneAndUpdate(
-  {
-    financialYearId: activeFY._id,
-    productId: item.productId,
-    shopId: item.shopId,
-    godownId: null,
-  },
-  {
-    $inc: { remainingPacks: Number(totalQuantity || 0) },
-    $set: { lastUpdated: new Date() },
-  },
-  { upsert: false, session, runValidators: true },
-);
+          {
+            financialYearId: activeFY._id,
+            productId: item.productId,
+            shopId: item.shopId,
+            godownId: item.godownId || null,
+          },
+          {
+            $inc: { remainingPacks: Number(totalQuantity || 0) },
+            $set: { lastUpdated: new Date() },
+          },
+          { upsert: false, session, runValidators: true },
+        );
 
       }
     }
@@ -363,6 +380,7 @@ export const cancelOrder = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const activeFY = await getActiveFinancialYear();
+    if (!activeFY) return res.status(200).json({ orders: [], total: 0 }); // Or appropriate default response
 
     let { page = 1, limit = 10, status, shopId } = req.query;
     page = Number(page);
@@ -412,9 +430,9 @@ export const getOrderById = async (req, res) => {
     const activeFY = await getActiveFinancialYear();
 
     const order = await Order.findOne({
-  _id: req.params.orderId,
-  financialYearId: activeFY._id,
-})
+      _id: req.params.orderId,
+      financialYearId: activeFY._id,
+    })
 
       .populate({
         path: "customerId",
@@ -450,9 +468,9 @@ export const getPendingOrderItems = async (req, res) => {
 
     const { shopId } = req.query;
     const match = {
-  financialYearId: activeFY._id,
-  "orderItems.status": "Pending",
-};
+      financialYearId: activeFY._id,
+      "orderItems.status": "Pending",
+    };
 
     if (shopId)
       match["orderItems.shopId"] = new mongoose.Types.ObjectId(shopId);
@@ -509,49 +527,49 @@ export const attemptFulfillPending = async (req, res) => {
       return res.status(400).json({ msg: "shopId and productId are required" });
     }
 
-   const pendingOrders = await Order.find({
-  financialYearId: activeFY._id,
-  "orderItems.productId": productId,
-  "orderItems.status": "Pending",
-  "orderItems.shopId": shopId,
-}).session(session);
+    const pendingOrders = await Order.find({
+      financialYearId: activeFY._id,
+      "orderItems.productId": productId,
+      "orderItems.status": "Pending",
+      "orderItems.shopId": shopId,
+    }).session(session);
 
 
     for (const order of pendingOrders) {
       let changed = false;
 
-for (const item of order.orderItems) {
-  if (
-    String(item.productId) !== String(productId) ||
-    String(item.shopId) !== String(shopId) ||
-    item.status !== "Pending"
-  ) continue;
+      for (const item of order.orderItems) {
+        if (
+          String(item.productId) !== String(productId) ||
+          String(item.shopId) !== String(shopId) ||
+          item.status !== "Pending"
+        ) continue;
 
-  // Total quantity including company items
-  let totalQuantity = item.quantity ?? 0;
-  if (item.companyItems?.length) {
-    totalQuantity = item.companyItems.reduce((sum, c) => sum + c.quantity, 0);
-  }
+        // Total quantity including company items
+        let totalQuantity = item.quantity ?? 0;
+        if (item.companyItems?.length) {
+          totalQuantity = item.companyItems.reduce((sum, c) => sum + c.quantity, 0);
+        }
 
-  const inv = await Inventory.findOne({
-    financialYearId: activeFY._id,
-    productId,
-    shopId,
-    godownId: null,
-  }).session(session);
+        const inv = await Inventory.findOne({
+          financialYearId: activeFY._id,
+          productId,
+          shopId,
+          godownId: item.godownId || null,
+        }).session(session);
 
-  if (!inv) continue;
+        if (!inv) continue;
 
-  const availableQty = Number(inv.remainingPacks ?? 0);
-  if (availableQty < Number(totalQuantity || 0)) continue;
+        const availableQty = Number(inv.remainingPacks ?? 0);
+        if (availableQty < Number(totalQuantity || 0)) continue;
 
-  inv.remainingPacks = availableQty - Number(totalQuantity || 0);
-  inv.lastUpdated = new Date();
-  await inv.save({ session });
+        inv.remainingPacks = availableQty - Number(totalQuantity || 0);
+        inv.lastUpdated = new Date();
+        await inv.save({ session });
 
-  item.status = "Fulfilled";
-  changed = true;
-}
+        item.status = "Fulfilled";
+        changed = true;
+      }
 
 
       if (changed) {

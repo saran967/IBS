@@ -317,7 +317,8 @@ const OrderForm = ({
             ? combinedLocations[0]
             : null,
 
-        product: "",
+        product: null,
+        productId: "",
         quantity: "",
         pickupDate: orderRows[0]?.pickupDate || null,
         availablePacks: null,
@@ -367,11 +368,8 @@ const OrderForm = ({
 
       groupedOrders[key].orderItems.push({
         shopId: loc.type === "Shop" ? loc._id : loc.shopId, //  parent shopId of godown
-
         godownId: loc.type === "Godown" ? loc._id : null,
-
-        // productId: r.product,
-        productId: r.productId,
+        productId: r.productId || r.product?._id, // fallback to product._id
         quantity: Number(r.quantity),
       });
     }
@@ -392,7 +390,8 @@ const OrderForm = ({
             ? combinedLocations[0]
             : null,
 
-        product: "",
+        product: null,
+        productId: "",
         quantity: "",
         pickupDate: null,
         availablePacks: null,
@@ -458,9 +457,8 @@ const OrderForm = ({
     const isAdmin = currentUser?.role === "admin";
     const grouped = {};
     for (const order of data) {
-      const key = `${order.customerId?._id || order.customerId}_${
-        order.orderNumber
-      }`;
+      const key = `${order.customerId?._id || order.customerId}_${order.orderNumber
+        }`;
       if (!grouped[key]) {
         grouped[key] = {
           ...order,
@@ -472,10 +470,10 @@ const OrderForm = ({
         if (item.godownId || item.shopId) {
           grouped[key].shops.add(
             item.godownId?.name?.en ||
-              item.godownId?.name ||
-              item.shopId?.name?.en ||
-              item.shopId?.name ||
-              "Unknown Location",
+            item.godownId?.name ||
+            item.shopId?.name?.en ||
+            item.shopId?.name ||
+            "Unknown Location",
           );
         }
 
@@ -548,8 +546,8 @@ const OrderForm = ({
                             : order.orderStatus === "pending"
                               ? "warning"
                               : ["confirmed", "fulfilled"].includes(
-                                    order.orderStatus,
-                                  )
+                                order.orderStatus,
+                              )
                                 ? "success"
                                 : "error"
                         }
@@ -647,6 +645,10 @@ const OrderForm = ({
                           ? option.customerName
                           : getLocalizedText(option.customerName, lang)
                       }
+                      isOptionEqualToValue={(option, value) => {
+                        if (!value) return false;
+                        return option._id === value._id;
+                      }}
                       value={row.customer}
                       onChange={(_, newValue) => {
                         if (newValue?._id === "new") {
@@ -664,6 +666,17 @@ const OrderForm = ({
                       renderInput={(params) => (
                         <TextField {...params} label="Customer" size="small" />
                       )}
+                      renderOption={(props, option) => {
+                        // Use _id as key to avoid duplicate key warning if names are same
+                        const { key, ...otherProps } = props;
+                        return (
+                          <li key={option._id || option.customerName} {...otherProps}>
+                            {option._id === "new"
+                              ? option.customerName
+                              : getLocalizedText(option.customerName, lang)}
+                          </li>
+                        );
+                      }}
                     />
                   </Grid>
 
@@ -757,34 +770,37 @@ const OrderForm = ({
                       </Box>
                     )}
                   </Grid>  */}
-                  <Autocomplete
-                    options={productOptions}
-                    value={row.product || null}
-                    isOptionEqualToValue={(option, value) =>
-                      String(option._id) === String(value?._id)
-                    }
-                    getOptionLabel={(option) => {
-                      const code = option.productCode || "";
-                      const en = option.name?.en || "";
-                      const ta = option.name?.ta || "";
-                      return `${code} - ${en}${ta ? " / " + ta : ""}`;
-                    }}
-                    onInputChange={(e, value) => setProductSearchText(value)}
-                    onChange={(_, newValue) => {
-                      const updated = [...orderRows];
-                      updated[index].product = newValue; //  store full object
-                      updated[index].productId = newValue ? newValue._id : ""; //  store id
-                      setOrderRows(updated);
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Product"
-                        size="small"
-                        placeholder="Search by code / name"
-                      />
-                    )}
-                  />
+
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Autocomplete
+                      options={productOptions}
+                      value={row.product || null}
+                      isOptionEqualToValue={(option, value) =>
+                        String(option._id) === String(value?._id)
+                      }
+                      getOptionLabel={(option) => {
+                        const code = option.productCode || "";
+                        const en = option.name?.en || "";
+                        const ta = option.name?.ta || "";
+                        return `${code} - ${en}${ta ? " / " + ta : ""}`;
+                      }}
+                      onInputChange={(e, value) => setProductSearchText(value)}
+                      onChange={(_, newValue) => {
+                        const updated = [...orderRows];
+                        updated[index].product = newValue; //  store full object
+                        updated[index].productId = newValue ? newValue._id : ""; //  store id
+                        setOrderRows(updated);
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Product"
+                          size="small"
+                          placeholder="Search by code / name"
+                        />
+                      )}
+                    />
+                  </Grid>
 
                   {/* Quantity */}
                   <Grid item xs={12} sm={6} md={3}>
@@ -867,28 +883,24 @@ const OrderForm = ({
           >
             {currentUser?.role === "admin" && (
               <Tab
-                label={`Requested (${
-                  localOrders.filter((o) => o.orderStatus === "requested")
-                    .length
-                })`}
+                label={`Requested (${localOrders.filter((o) => o.orderStatus === "requested")
+                  .length
+                  })`}
               />
             )}
             <Tab
-              label={`Pending (${
-                localOrders.filter((o) => o.orderStatus === "pending").length
-              })`}
+              label={`Pending (${localOrders.filter((o) => o.orderStatus === "pending").length
+                })`}
             />
             <Tab
-              label={`Confirmed (${
-                localOrders.filter((o) =>
-                  ["confirmed", "fulfilled"].includes(o.orderStatus),
-                ).length
-              })`}
+              label={`Confirmed (${localOrders.filter((o) =>
+                ["confirmed", "fulfilled"].includes(o.orderStatus),
+              ).length
+                })`}
             />
             <Tab
-              label={`Cancelled (${
-                localOrders.filter((o) => o.orderStatus === "cancelled").length
-              })`}
+              label={`Cancelled (${localOrders.filter((o) => o.orderStatus === "cancelled").length
+                })`}
             />
           </Tabs>
         </Paper>

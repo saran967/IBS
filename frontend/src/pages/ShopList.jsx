@@ -18,6 +18,7 @@ import {
   Divider,
   useTheme,
   useMediaQuery,
+  Grid,
 } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 import { toast } from "react-toastify";
@@ -492,7 +493,7 @@ const ShopList = () => {
 
               <Typography variant="subtitle1">Employees</Typography>
               {(viewShop.employees || []).map((e) => (
-                <Typography key={e._1d} sx={{ fontSize: "0.9rem" }}>
+                <Typography key={e._id} sx={{ fontSize: "0.9rem" }}>
                   • {getLocalizedText(e.name, lang)} — {e.email}
                 </Typography>
               ))}

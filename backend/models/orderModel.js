@@ -11,6 +11,11 @@ const orderItemSchema = new mongoose.Schema({
     ref: "Shop",
     required: true,
   },
+  godownId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Godown",
+    default: null,
+  },
   productId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Product",

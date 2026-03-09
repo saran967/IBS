@@ -76,6 +76,16 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         sellingPriceforAgent: editProduct.sellingPriceforAgent || "",
         minStockLevel: editProduct.minStockLevel || "",
       });
+    } else {
+      setFormData({
+        name_en: "", name_ta: "", category_en: "", category_ta: "",
+        unit_en: "", unit_ta: "", productCode: "", weight: "",
+        purchasePrice: "", profitPercentage: "", sellingPrice: "",
+        cgstPercentage: "", sgstPercentage: "", hsnCode: "",
+        allowRetail: false, baseUnitType: "G", fssaiNumber: "",
+        packedDate: "", useByDate: "", mrp: "",
+        sellingPriceforB2B: "", sellingPriceforAgent: "", minStockLevel: ""
+      });
     }
   }, [editProduct]);
 

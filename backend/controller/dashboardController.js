@@ -6,6 +6,7 @@ import Product from "../models/productModel.js";
 import Customer from "../models/customerModel.js";
 import StockTransfer from "../models/stockTransfer.js";
 import getActiveFinancialYear from "../utils/getActiveFinancialYear.js";
+import Inventory from "../models/inventoryModel.js";
 
 
 export const getDashboardSummary = async (req, res) => {
@@ -36,11 +37,10 @@ export const getDashboardSummary = async (req, res) => {
       todaySalesAgg,
       totalProducts,
       totalCustomers,
-      lowStockProducts,
+      lowStockAggResult,
       recentSales,
       recentPurchases,
       pendingTransfers,
-      topProducts,
       sales30Days,
       purchases30Days,
     ] = await Promise.all([
@@ -53,15 +53,75 @@ export const getDashboardSummary = async (req, res) => {
       Product.countDocuments(),
       Customer.countDocuments(),
 
-      // Low stock count
-      Product.countDocuments({
-        $expr: {
-          $and: [
-            { $gt: ["$minStockLevel", 0] },
-            { $lt: ["$totalStock", "$minStockLevel"] }
-          ]
-        }
-      }),
+      // Low Stock Aggregation using Inventory
+      Inventory.aggregate([
+        { $match: { financialYearId: activeFY._id } },
+        {
+          $group: {
+            _id: "$productId",
+            totalPacks: { $sum: "$remainingPacks" },
+            totalWeight: { $sum: "$remainingWeight" },
+            baseUnitType: { $first: "$baseUnitType" },
+            purchaseType: { $first: "$purchaseType" }
+          }
+        },
+        {
+          $lookup: {
+            from: "products",
+            localField: "_id",
+            foreignField: "_id",
+            as: "productDoc"
+          }
+        },
+        { $unwind: "$productDoc" },
+        {
+          $project: {
+            name: "$productDoc.name",
+            productCode: "$productDoc.productCode",
+            minStockLevel: "$productDoc.minStockLevel",
+            baseUnitType: 1,
+            purchaseType: 1,
+            totalPacks: 1,
+            totalWeight: 1,
+            totalStock: {
+              $cond: {
+                if: { $eq: ["$purchaseType", "SKU"] },
+                then: "$totalPacks",
+                else: {
+                  $divide: [
+                    "$totalWeight",
+                    { $cond: { if: { $in: ["$baseUnitType", ["G", "ML"]] }, then: 1000, else: 1 } }
+                  ]
+                }
+              }
+            },
+            isLowStock: {
+              $cond: {
+                if: { $eq: ["$purchaseType", "SKU"] },
+                then: {
+                  $and: [
+                    { $gt: ["$productDoc.minStockLevel", 0] },
+                    { $lt: ["$totalPacks", "$productDoc.minStockLevel"] }
+                  ]
+                },
+                else: {
+                  $and: [
+                    { $gt: ["$productDoc.minStockLevel", 0] },
+                    {
+                      $lt: [
+                        { $divide: ["$totalWeight", { $cond: { if: { $in: ["$baseUnitType", ["G", "ML"]] }, then: 1000, else: 1 } }] },
+                        "$productDoc.minStockLevel"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        { $match: { isLowStock: true } },
+        { $sort: { totalStock: 1 } }
+      ]),
 
       // Recent Sales (for tables)
       Sale.find({ financialYearId: activeFY._id })
@@ -78,20 +138,6 @@ export const getDashboardSummary = async (req, res) => {
         .lean(),
 
       StockTransfer.countDocuments({ financialYearId: activeFY._id, status: { $ne: "approved" } }),
-
-      // Low Stock Items (Top 10 most urgent)
-      Product.find({
-        $expr: {
-          $and: [
-            { $gt: ["$minStockLevel", 0] },
-            { $lt: ["$totalStock", "$minStockLevel"] }
-          ]
-        }
-      })
-        .sort({ totalStock: 1 })
-        .limit(10)
-        .select("name totalStock productCode minStockLevel baseUnitType")
-        .lean(),
 
       // 30 Days Sales (for charts)
       Sale.find({
@@ -114,11 +160,11 @@ export const getDashboardSummary = async (req, res) => {
       todaySales: todaySalesAgg[0]?.total || 0,
       totalProducts,
       totalCustomers,
-      lowStockProducts,
+      lowStockProducts: lowStockAggResult.length,
       pendingTransfers,
       recentSales,
       recentPurchases,
-      lowStockItems: topProducts,
+      lowStockItems: lowStockAggResult.slice(0, 10),
       sales30Days,
       purchases30Days,
     });
