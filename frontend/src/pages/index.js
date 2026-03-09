@@ -1,0 +1,9 @@
+export { default as DashBoardOulet } from "./DashboardOutet";
+export { default as AuthLayout } from "./AuthLayout";
+export { default as Error } from "./Error";
+export { default as Dashboard } from "./Dashboard";
+export { default as ProductList } from "./ProductListPage";
+export { default as Login } from "./Login";
+export { default as UserManagement } from "./Employee";
+export { default as ProductPackList } from "./ProductPackList";
+export { default as FinancialYearManagement } from "./FinancialYearManagement";

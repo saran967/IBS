@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  overflow-x: hidden !important;
+}
+
+@import "leaflet/dist/leaflet.css";
+
+/* Print Styles for 48mm Labels */
+@media print {
+  @page {
+    size: 48mm auto;
+    margin: 0;
+  }
+
+  body {
+    width: 48mm;
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Table Row Highlight Animation */
+.row-highlight {
+  animation: highlight-fade 2.5s ease-out;
+}
+
+@keyframes highlight-fade {
+  0% {
+    background-color: #e8f5e9;
+  }
+
+  70% {
+    background-color: #e8f5e9;
+  }
+
+  100% {
+    background-color: transparent;
+  }
+}
+
+/* Glassmorphism utility */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
