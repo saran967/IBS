@@ -18,6 +18,12 @@ const ledgerSchema = new Schema(
       required: true,
     },
 
+
+
+
+
+    
+
     transactionType: {
       type: String,
       enum: ["SALE", "PAYMENT", "DELIVERY", "ADJUSTMENT"],
