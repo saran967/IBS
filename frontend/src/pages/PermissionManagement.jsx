@@ -33,7 +33,15 @@ const PermissionManagement = ({ onDataUpdated }) => {
   const loadUsers = async () => {
     try {
       const res = await customFetch.get("/users");
-      setUsers(res.data || []);
+      const payload = res.data;
+      const userList = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.users)
+          ? payload.users
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : [];
+      setUsers(userList);
     } catch (err) {
       toast.error("Failed to load users");
     } finally {
@@ -67,7 +75,7 @@ const PermissionManagement = ({ onDataUpdated }) => {
       return;
     }
 
-    const user = users.find((u) => u._id === selectedUser);
+    const user = users.find((u) => String(u._id) === String(selectedUser));
     setAllowedModules(user?.permissions || []);
   }, [selectedUser, users]);
 
@@ -130,10 +138,18 @@ const PermissionManagement = ({ onDataUpdated }) => {
           Select User:
         </Typography>
         <Select
+          displayEmpty
           fullWidth
           size={isMobile ? "small" : "medium"}
           value={selectedUser}
           onChange={(e) => setSelectedUser(e.target.value)}
+          renderValue={(value) => {
+            if (!value) return "Select Employee";
+            const selected = users.find((u) => String(u._id) === String(value));
+            return selected
+              ? `${selected.name?.en || selected.name || selected.email} (${selected.role || "user"})`
+              : "Select Employee";
+          }}
           sx={{
             "& .MuiSelect-select": {
               py: isMobile ? 1 : 1.5,

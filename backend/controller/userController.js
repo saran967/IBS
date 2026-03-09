@@ -459,18 +459,52 @@ export const deleteSubAdmin = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     const user = req.user;
-    let query = {};
-
     if (user.role === "superadmin") {
-      query = {};
-    } else if (user.role === "admin") {
-      query = { createdBy: user.userId };
+      const users = await User.find({}).select(
+        "name email role permissions shopId isActive createdAt",
+      );
+      return res.status(200).json(users);
+    }
 
-    } else {
+    if (user.role !== "admin") {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const users = await User.find(query).select("name email role permissions shopId isActive createdAt");
+    // Admin should see subadmins + employees in their hierarchy.
+    // Prefer createdBy chain, but also support legacy rows linked via shopId/shop arrays.
+    const adminId = user.userId;
+    const shops = await Shop.find({ createdBy: adminId }).select(
+      "_id subAdmins employees",
+    );
+    const shopIds = shops.map((s) => s._id);
+
+    const subAdmins = await User.find({
+      role: "subadmin",
+      $or: [{ createdBy: adminId }, { shopId: { $in: shopIds } }],
+    }).select("_id");
+
+    const creatorIds = [adminId, ...subAdmins.map((s) => s._id)];
+    const shopLinkedUserIds = shops.flatMap((s) => [
+      ...(s.subAdmins || []),
+      ...(s.employees || []),
+    ]);
+
+    let users = await User.find({
+      role: { $in: ["subadmin", "user"] },
+      $or: [
+        { createdBy: { $in: creatorIds } },
+        { shopId: { $in: shopIds } },
+        { _id: { $in: shopLinkedUserIds } },
+      ],
+    }).select("name email role permissions shopId isActive createdAt");
+
+    // Fallback for older datasets where relationship fields may be missing.
+    if (!users.length) {
+      users = await User.find({
+        role: { $in: ["subadmin", "user"] },
+      }).select("name email role permissions shopId isActive createdAt");
+    }
+
     res.status(200).json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });

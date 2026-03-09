@@ -35,7 +35,7 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import customFetch from "../../utils/customFetch";
 import getLocalizedText from "../../utils/getLocalizedText";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export default function SalesList() {
   const { lang } = useParams();
@@ -77,25 +77,37 @@ export default function SalesList() {
 
   const limit = 10;
 
+  const getEndOfDayISOString = (dateValue) => {
+    if (!dateValue) return undefined;
+    const d = new Date(dateValue);
+    d.setHours(23, 59, 59, 999);
+    return d.toISOString();
+  };
+
+  const buildSalesParams = ({ pageValue = page, limitValue = limit } = {}) => {
+    return new URLSearchParams({
+      page: String(pageValue),
+      limit: String(limitValue),
+      lang,
+      ...(filters.saleType && { saleType: filters.saleType }),
+      ...(filters.billType && { billType: filters.billType }),
+      ...(filters.search && { search: filters.search }),
+      ...(filters.startDate && {
+        startDate: new Date(filters.startDate).toISOString(),
+      }),
+      ...(filters.endDate && {
+        endDate: getEndOfDayISOString(filters.endDate),
+      }),
+    });
+  };
+
   // ======================================================
   // Fetch sales
   // ======================================================
   const fetchSales = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        page,
-        limit,
-        lang,
-        ...(filters.saleType && { saleType: filters.saleType }),
-        ...(filters.billType && { billType: filters.billType }),
-        ...(filters.search && { search: filters.search }),
-        ...(filters.startDate && {
-          startDate: filters.startDate.toISOString(),
-        }),
-        ...(filters.endDate && { endDate: filters.endDate.toISOString() }),
-      });
-
+      const params = buildSalesParams();
       const res = await customFetch(`/sales?${params.toString()}`);
 
       if (res.data.success) {
@@ -269,8 +281,47 @@ export default function SalesList() {
   // ======================================================
   // Export PDF
   // ======================================================
-  const exportSalesPDF = () => {
-    if (!sales || sales.length === 0) {
+  const fetchAllFilteredSales = async () => {
+    const exportLimit = 200;
+    let exportPage = 1;
+    let pages = 1;
+    let allRows = [];
+    let exportSummary = summary;
+
+    do {
+      const params = buildSalesParams({
+        pageValue: exportPage,
+        limitValue: exportLimit,
+      });
+      const res = await customFetch(`/sales?${params.toString()}`);
+
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || "Failed to fetch export data");
+      }
+
+      allRows = allRows.concat(res.data.data || []);
+      pages = Number(res.data.totalPages || 1);
+      exportSummary = res.data.summary || exportSummary;
+      exportPage += 1;
+    } while (exportPage <= pages);
+
+    return { rows: allRows, totals: exportSummary };
+  };
+
+  const exportSalesPDF = async () => {
+    let rows = sales;
+    let totals = summary;
+
+    try {
+      const exportData = await fetchAllFilteredSales();
+      rows = exportData.rows;
+      totals = exportData.totals;
+    } catch {
+      toast.error("Failed to prepare export");
+      return;
+    }
+
+    if (!rows || rows.length === 0) {
       toast.warning("No sales available to export");
       return;
     }
@@ -300,7 +351,7 @@ export default function SalesList() {
 
     const tableRows = [];
 
-    sales.forEach((s) => {
+    rows.forEach((s) => {
       const shopName = getLocalizedText(s.items?.[0]?.godownId?.name || s.items?.[0]?.shopId?.name || "--", "en");
       const custName = getLocalizedText(s.customerId?.customerName, "en") || "Walk-in";
       const paymentStr = s.paymentSplits?.length ? s.paymentSplits.map((p) => `${p.mode} ${Number(p.amount).toFixed(0)}`).join(", ") : "-";
@@ -319,7 +370,7 @@ export default function SalesList() {
       ]);
     });
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 28,
@@ -329,11 +380,11 @@ export default function SalesList() {
     });
 
     // Totals Footer
-    const finalY = doc.lastAutoTable.finalY || 30;
+    const finalY = doc.lastAutoTable?.finalY || 30;
     doc.setFontSize(11);
-    doc.text(`Grand Total: Rs ${summary.totalGrand ? summary.totalGrand.toFixed(2) : 0}`, 14, finalY + 10);
-    doc.text(`Total Paid: Rs ${summary.totalPaid ? summary.totalPaid.toFixed(2) : 0}`, 14, finalY + 16);
-    doc.text(`Total Balance: Rs ${summary.totalBalance ? summary.totalBalance.toFixed(2) : 0}`, 14, finalY + 22);
+    doc.text(`Grand Total: Rs ${totals.totalGrand ? totals.totalGrand.toFixed(2) : 0}`, 14, finalY + 10);
+    doc.text(`Total Paid: Rs ${totals.totalPaid ? totals.totalPaid.toFixed(2) : 0}`, 14, finalY + 16);
+    doc.text(`Total Balance: Rs ${totals.totalBalance ? totals.totalBalance.toFixed(2) : 0}`, 14, finalY + 22);
 
     doc.save("Sales_Report.pdf");
   };

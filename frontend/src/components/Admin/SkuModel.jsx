@@ -335,7 +335,7 @@ export default function SKUModal({ open, onClose, product }) {
               <TableCell>{`Base Qty (${uiBaseLabel})`}</TableCell>
               <TableCell>Retail</TableCell>
               <TableCell>Wholesale</TableCell>
-              <TableCell>Agent</TableCell>
+              <TableCell>Semi Wholesale</TableCell>
               <TableCell>HSN Code</TableCell>
               <TableCell>Barcode</TableCell>
               <TableCell>Sell Qty</TableCell>

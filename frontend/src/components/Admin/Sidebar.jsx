@@ -404,7 +404,7 @@ export default function Sidebar({ open, setOpen }) {
             hasPermission("ledger-sales") ||
             hasPermission("ledger-purchase") ||
             hasPermission("ledger-customer") ||
-            hasPermission("ledger-vendor") ||
+            hasPermission("vendors") ||
             hasPermission("ledger-stock-transfer")) && (
               <>
                 <ListItemButton
@@ -528,7 +528,7 @@ export default function Sidebar({ open, setOpen }) {
                       </ListItemButton>
                     )}
 
-                    {hasPermission("ledger-vendor") && (
+                    {hasPermission("vendors") && (
                       <ListItemButton
                         component={Link}
                         to={`/${userLang}/admin/vendorsledger`}
@@ -578,119 +578,123 @@ export default function Sidebar({ open, setOpen }) {
               </>
             )}
 
-          <ListItemButton
-            onClick={() => setAndroidOpen(!androidOpen)}
-            sx={{
-              borderRadius: 1.5,
-              py: 1.2,
-              mb: 0.5,
-              "&:hover": { backgroundColor: "#14224A" },
-            }}
-          >
-            <ListItemIcon
-              sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
-            >
-              <MdStore />
-            </ListItemIcon>
-
-            {open && (
-              <>
-                <ListItemText primary="Android" />
-                {androidOpen ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}
-              </>
-            )}
-          </ListItemButton>
-
-          <Collapse in={androidOpen}>
-            <List disablePadding sx={{ pl: open ? 5 : 0 }}>
-              {/* ANDROID Product List PAGE */}
+          {hasPermission("android") && (
+            <>
               <ListItemButton
-                component={Link}
-                to={`/${userLang}/admin/android/listpage`}
+                onClick={() => setAndroidOpen(!androidOpen)}
                 sx={{
                   borderRadius: 1.5,
-                  py: 1.1,
+                  py: 1.2,
+                  mb: 0.5,
                   "&:hover": { backgroundColor: "#14224A" },
                 }}
               >
                 <ListItemIcon
                   sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
                 >
-                  <MdListAlt />
+                  <MdStore />
                 </ListItemIcon>
-                {open && <ListItemText primary="Product-Page" />}
+
+                {open && (
+                  <>
+                    <ListItemText primary="Android" />
+                    {androidOpen ? <MdKeyboardArrowUp /> : <MdKeyboardArrowDown />}
+                  </>
+                )}
               </ListItemButton>
 
-              {/* ANDROID ORDER PAGE */}
-              <ListItemButton
-                component={Link}
-                to={`/${userLang}/admin/android/orderpage`}
-                sx={{
-                  borderRadius: 1.5,
-                  py: 1.1,
-                  "&:hover": { backgroundColor: "#14224A" },
-                }}
-              >
-                <ListItemIcon
-                  sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
-                >
-                  <MdListAlt />
-                </ListItemIcon>
-                {open && <ListItemText primary="Web-Order-Page" />}
-              </ListItemButton>
+              <Collapse in={androidOpen}>
+                <List disablePadding sx={{ pl: open ? 5 : 0 }}>
+                  {/* ANDROID Product List PAGE */}
+                  <ListItemButton
+                    component={Link}
+                    to={`/${userLang}/admin/android/listpage`}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 1.1,
+                      "&:hover": { backgroundColor: "#14224A" },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
+                    >
+                      <MdListAlt />
+                    </ListItemIcon>
+                    {open && <ListItemText primary="Product-Page" />}
+                  </ListItemButton>
 
-              <ListItemButton
-                component={Link}
-                to={`/${userLang}/admin/android/mobileorderpage`}
-                sx={{
-                  borderRadius: 1.5,
-                  py: 1.1,
-                  "&:hover": { backgroundColor: "#14224A" },
-                }}
-              >
-                <ListItemIcon
-                  sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
-                >
-                  <MdListAlt />
-                </ListItemIcon>
-                {open && <ListItemText primary="Mobile-Order-Page" />}
-              </ListItemButton>
+                  {/* ANDROID ORDER PAGE */}
+                  <ListItemButton
+                    component={Link}
+                    to={`/${userLang}/admin/android/orderpage`}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 1.1,
+                      "&:hover": { backgroundColor: "#14224A" },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
+                    >
+                      <MdListAlt />
+                    </ListItemIcon>
+                    {open && <ListItemText primary="Web-Order-Page" />}
+                  </ListItemButton>
 
-              <ListItemButton
-                component={Link}
-                to={`/${userLang}/admin/android/mobileofferpage`}
-                sx={{
-                  borderRadius: 1.5,
-                  py: 1.1,
-                  "&:hover": { backgroundColor: "#14224A" },
-                }}
-              >
-                <ListItemIcon
-                  sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
-                >
-                  <MdListAlt />
-                </ListItemIcon>
-                {open && <ListItemText primary="Mobile-Offer-Page" />}
-              </ListItemButton>
+                  <ListItemButton
+                    component={Link}
+                    to={`/${userLang}/admin/android/mobileorderpage`}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 1.1,
+                      "&:hover": { backgroundColor: "#14224A" },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
+                    >
+                      <MdListAlt />
+                    </ListItemIcon>
+                    {open && <ListItemText primary="Mobile-Order-Page" />}
+                  </ListItemButton>
 
-              <ListItemButton
-                component={Link}
-                to={`/${userLang}/admin/android/createagent_android`}
-                sx={{
-                  borderRadius: 1.5,
-                  py: 1.1,
-                  "&:hover": { backgroundColor: "#14224A" },
-                }}
-              >
-                <ListItemIcon
-                  sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
-                >
-                  <MdListAlt />
-                </ListItemIcon>
-                {open && <ListItemText primary="Mobile-Agent-Page" />}
-              </ListItemButton>
-            </List>
-          </Collapse>
+                  <ListItemButton
+                    component={Link}
+                    to={`/${userLang}/admin/android/mobileofferpage`}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 1.1,
+                      "&:hover": { backgroundColor: "#14224A" },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
+                    >
+                      <MdListAlt />
+                    </ListItemIcon>
+                    {open && <ListItemText primary="Mobile-Offer-Page" />}
+                  </ListItemButton>
+
+                  <ListItemButton
+                    component={Link}
+                    to={`/${userLang}/admin/android/createagent_android`}
+                    sx={{
+                      borderRadius: 1.5,
+                      py: 1.1,
+                      "&:hover": { backgroundColor: "#14224A" },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{ minWidth: open ? 40 : "auto", color: "#5A5A5A" }}
+                    >
+                      <MdListAlt />
+                    </ListItemIcon>
+                    {open && <ListItemText primary="Mobile-Agent-Page" />}
+                  </ListItemButton>
+                </List>
+              </Collapse>
+            </>
+          )}
         </List>
         <Divider />
 

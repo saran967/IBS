@@ -5,6 +5,16 @@ import getActiveFinancialYear from "../../utils/getActiveFinancialYear.js";
 const formatMonth = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 
+const getCustomerEnglishName = (customer) => {
+  const raw = customer?.customerName;
+  if (!raw) return "Unknown Customer";
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "object") {
+    return raw.en || raw.ta || "Unknown Customer";
+  }
+  return "Unknown Customer";
+};
+
 // -------------------------------
 // GET main sales ledger
 // -------------------------------
@@ -35,7 +45,7 @@ export const getSalesLedger = async (req, res) => {
       return {
         saleId: s._id,
         invoiceNumber: s.invoiceNumber,
-        customer: s.customerId?.customerName || "Unknown Customer",
+        customer: getCustomerEnglishName(s.customerId),
         saleType: s.saleType,
         billAmount,
         billType,
@@ -86,7 +96,7 @@ export const getCustomerSummary = async (req, res) => {
 
     const map = {};
     for (const s of sales) {
-      const name = s.customerId?.customerName || "Unknown Customer";
+      const name = getCustomerEnglishName(s.customerId);
       map[name] = (map[name] || 0) + (s.netTotal || 0);
     }
 
@@ -144,7 +154,7 @@ export const getCustomerOutstanding = async (req, res) => {
     for (const s of sales) {
       console.log(sales, "sales");
 
-      const name = s.customerId?.customerName || "Unknown Customer";
+      const name = getCustomerEnglishName(s.customerId);
       const bill = s.netTotal || 0;
       const paid = s.paidAmount || 0;
       map[name] = (map[name] || 0) + (bill - paid);

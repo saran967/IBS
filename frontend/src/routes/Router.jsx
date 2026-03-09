@@ -140,7 +140,10 @@ const router = createBrowserRouter([
       {
         path: "low-stock-report",
         element: (
-          <PermissionRoute moduleId="inventory" element={<LowStockReport />} />
+          <PermissionRoute
+            moduleId="low-stock-report"
+            element={<LowStockReport />}
+          />
         ),
       },
       {
