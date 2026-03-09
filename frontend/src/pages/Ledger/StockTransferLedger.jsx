@@ -777,7 +777,7 @@ import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import TableChartIcon from "@mui/icons-material/TableChart";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export default function StockTransferLedger() {
   const [loading, setLoading] = useState(false);
@@ -808,6 +808,18 @@ export default function StockTransferLedger() {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmallMobile = useMediaQuery("(max-width:480px)");
   const isExtraSmall = useMediaQuery("(max-width:320px)");
+
+  const getLocationName = (transfer, type) => {
+    if (type === "from") {
+      return transfer.fromShopId
+        ? transfer.fromShopId?.name?.en || transfer.fromShopId?.name
+        : transfer.fromGodownId?.name?.en || transfer.fromGodownId?.name;
+    }
+
+    return transfer.toShopId
+      ? transfer.toShopId?.name?.en || transfer.toShopId?.name
+      : transfer.toGodownId?.name?.en || transfer.toGodownId?.name;
+  };
 
   // Fetch shops + products
  const fetchDropdowns = async () => {
@@ -875,19 +887,29 @@ setProducts(productList);
 
 
   // Fetch Transfers
-  const fetchTransfers = async (exportAll = false) => {
-    setLoading(true);
+  const fetchTransfers = async (exportAll = false, options = {}) => {
+    const activePage = options.page ?? page;
+    const activeFilters = options.filters ?? filters;
+    const selectedProduct = products.find(
+      (p) => String(p._id) === String(activeFilters.productId),
+    );
+    const selectedProductName =
+      typeof selectedProduct?.name === "object"
+        ? selectedProduct?.name?.en || selectedProduct?.name?.ta || ""
+        : selectedProduct?.name || "";
+
+    if (!exportAll) setLoading(true);
 
     try {
-      const limit = exportAll ? 10000 : 10; // Get all records for export
+      const limit = exportAll ? 10000 : 10;
     const query = new URLSearchParams({
-  page: exportAll ? 1 : page,
+  page: exportAll ? 1 : activePage,
   limit,
-  fromLocationId: filters.fromShopId,
-  toLocationId: filters.toShopId,   // ✔ Works for both Shop & Godown
-  productId: filters.productId,
-  startDate: filters.startDate ? filters.startDate.toISOString().split("T")[0] : "",
-  endDate: filters.endDate ? filters.endDate.toISOString().split("T")[0] : "",
+  fromLocationId: activeFilters.fromShopId,
+  toLocationId: activeFilters.toShopId,
+  productName: selectedProductName,
+  startDate: activeFilters.startDate ? activeFilters.startDate.toISOString().split("T")[0] : "",
+  endDate: activeFilters.endDate ? activeFilters.endDate.toISOString().split("T")[0] : "",
 });
 
 
@@ -934,7 +956,6 @@ setProducts(productList);
       endDate: null,
     });
     setPage(1);
-    fetchTransfers();
   };
 
   // Export to Excel
@@ -946,8 +967,8 @@ setProducts(productList);
       const excelData = allTransfers.map((transfer, index) => ({
         '#': index + 1,
         'Product': transfer.productId?.name?.en || transfer.productId?.name,
-        'From Shop': transfer.fromShopId?.name?.en || transfer.fromShopId?.name,
-        'To Shop': transfer.toShopId?.name?.en || transfer.toShopId?.name,
+        'From Shop': getLocationName(transfer, "from"),
+        'To Shop': getLocationName(transfer, "to"),
         'Quantity': transfer.quantity,
         'Date': new Date(transfer.transferDate).toLocaleDateString(),
         'Status': transfer.status || "Completed",
@@ -972,8 +993,12 @@ setProducts(productList);
     setExporting(true);
     try {
       const allTransfers = await fetchTransfers(true);
+      if (!allTransfers.length) {
+        toast.warning("No records found for export");
+        return;
+      }
       
-      const doc = new jsPDF();
+      const doc = new jsPDF("landscape");
       
       // Add title
       doc.setFontSize(18);
@@ -987,8 +1012,8 @@ setProducts(productList);
       const tableData = allTransfers.map((transfer, index) => [
         index + 1,
         transfer.productId?.name?.en || transfer.productId?.name,
-        transfer.fromShopId?.name?.en || transfer.fromShopId?.name,
-        transfer.toShopId?.name?.en || transfer.toShopId?.name,
+        getLocationName(transfer, "from"),
+        getLocationName(transfer, "to"),
         transfer.quantity,
         new Date(transfer.transferDate).toLocaleDateString(),
         transfer.status || "Completed",
@@ -996,7 +1021,7 @@ setProducts(productList);
       
       // Add table with error handling
       try {
-        doc.autoTable({
+        autoTable(doc, {
           head: [["#", "Product", "From Shop", "To Shop", "Quantity", "Date", "Status"]],
           body: tableData,
           startY: 30,
@@ -1589,9 +1614,9 @@ setProducts(productList);
                             fontSize: isExtraSmall ? "0.65rem" : "inherit",
                           }}
                         >
-                          {t.fromShopId
-    ? t.fromShopId?.name?.en || t.fromShopId?.name
-    : t.fromGodownId?.name?.en || t.fromGodownId?.name}
+                          {t.toShopId
+    ? t.toShopId?.name?.en || t.toShopId?.name
+    : t.toGodownId?.name?.en || t.toGodownId?.name}
                         </TableCell>
                         <TableCell
                           sx={{
@@ -1659,3 +1684,4 @@ setProducts(productList);
     </LocalizationProvider>
   );
 }
+

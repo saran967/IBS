@@ -54,9 +54,11 @@ const OrderManagement = () => {
     try {
       await customFetch.post("/orders", orderData);
       toast.success("Order added successfully!");
-      fetchOrders();
+      await fetchOrders();
+      return true;
     } catch {
       toast.error("Failed to add order");
+      return false;
     }
   };
 

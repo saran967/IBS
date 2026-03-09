@@ -7,8 +7,10 @@ import Customer from "../models/customerModel.js";
 import getActiveFinancialYear from "../utils/getActiveFinancialYear.js";
 
 
-async function generateOrderNumber(financialYearId) {
-  const last = await Order.findOne({ financialYearId })
+async function generateOrderNumber() {
+  const last = await Order.findOne({
+    orderNumber: { $regex: /^ORD\d+$/ },
+  })
     .sort({ createdAt: -1 })
     .select("orderNumber");
 
@@ -98,22 +100,42 @@ export const createOrder = async (req, res) => {
           .json({ msg: "Missing required fields for one of the orders" });
       }
 
-     const orderNumber = await generateOrderNumber(activeFY._id);
+      let newOrder = null;
+      let saved = false;
 
+      // Retry on duplicate order number to avoid race collisions.
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const orderNumber = await generateOrderNumber();
 
-      const newOrder = new Order({
-        financialYearId: activeFY._id,
+        newOrder = new Order({
+          financialYearId: activeFY._id,
+          customerId,
+          orderItems,
+          orderNumber,
+          pickupDate: pickupDate ? new Date(pickupDate) : undefined,
+          createdBy: user?.userId,
+          approvalStatus: isAdmin ? "approved" : "requested",
+          orderStatus: isAdmin ? "pending" : "requested",
+        });
 
-        customerId,
-        orderItems,
-        orderNumber,
-        pickupDate: pickupDate ? new Date(pickupDate) : undefined,
-        createdBy: user?.userId,
-        approvalStatus: isAdmin ? "approved" : "requested",
-        orderStatus: isAdmin ? "pending" : "requested",
-      });
+        try {
+          await newOrder.save();
+          saved = true;
+          break;
+        } catch (saveErr) {
+          const isDuplicateOrderNo =
+            saveErr?.code === 11000 && saveErr?.keyPattern?.orderNumber;
 
-      await newOrder.save();
+          if (!isDuplicateOrderNo || attempt === 4) {
+            throw saveErr;
+          }
+        }
+      }
+
+      if (!saved || !newOrder) {
+        return res.status(500).json({ msg: "Failed to generate order number" });
+      }
+
       createdOrders.push(newOrder);
     }
 

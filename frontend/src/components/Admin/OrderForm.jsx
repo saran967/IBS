@@ -330,7 +330,7 @@ const OrderForm = ({
     setOrderRows((prev) => prev.filter((_, i) => i !== index));
 
   // 🧾 Submit
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const invalid = orderRows.some(
       (r) => !r.customer || !r.shopId || !r.product || !r.quantity,
@@ -377,8 +377,12 @@ const OrderForm = ({
     }
 
     const groupedArray = Object.values(groupedOrders);
-    onOrderSubmit(groupedArray);
-    toast.success("Orders submitted successfully!");
+    try {
+      const isSaved = await onOrderSubmit(groupedArray);
+      if (isSaved === false) return;
+    } catch {
+      return;
+    }
 
     setOrderRows([
       {
