@@ -15,6 +15,8 @@ import path from "path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { setLanguage } from "./middleware/languageMiddleware.js";
 
+
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(

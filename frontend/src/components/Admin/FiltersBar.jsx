@@ -9,6 +9,9 @@ import {
   Switch,
 } from "@mui/material";
 
+
+
+
 const FiltersBar = ({
   lang,
   categories,
