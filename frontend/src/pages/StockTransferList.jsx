@@ -162,7 +162,7 @@ const TransferDetailsModal = ({ open, onClose, transfer, isMobile, lang }) => {
             )}
             <Grid item xs={12}>
               <Typography variant="caption" color="text.secondary">
-                Transfer ID: {transfer._id}
+                Transfer ID: {transfer.transferId}
               </Typography>
             </Grid>
           </Grid>
@@ -395,18 +395,24 @@ const StockTransferPage = () => {
     searchProduct,
   ]);
 
-  const fetchTransfers = async (pageNum = 1) => {
+  const fetchTransfers = async (pageNum = 1, overrides = {}) => {
     setLoading(true);
     try {
+      const appliedProduct = overrides.searchProduct ?? searchProduct;
+      const appliedFromDate = overrides.fromDate ?? fromDate;
+      const appliedToDate = overrides.toDate ?? toDate;
+      const appliedFromLocation = overrides.searchFromShop ?? searchFromShop;
+      const appliedToLocation = overrides.searchToShop ?? searchToShop;
+
       const res = await customFetch.get("/stock-transfer/transfers", {
         params: {
           page: pageNum,
           limit,
-          productName: searchProduct || "",
-          startDate: fromDate || "",
-          endDate: toDate || "",
-          fromLocationId: searchFromShop || "",
-          toLocationId: searchToShop || "",
+          productName: appliedProduct || "",
+          startDate: appliedFromDate || "",
+          endDate: appliedToDate || "",
+          fromLocationId: appliedFromLocation || "",
+          toLocationId: appliedToLocation || "",
         },
       });
 
@@ -486,11 +492,37 @@ const StockTransferPage = () => {
     }
 
     // -----------------------------
+    // LOCATION FILTERS
+    // -----------------------------
+    if (searchFromShop) {
+      filtered = filtered.filter((t) => {
+        const fromShop = t.fromShopId?._id || t.fromShopId || null;
+        const fromGodown = t.fromGodownId?._id || t.fromGodownId || null;
+        return (
+          String(fromShop || "") === String(searchFromShop) ||
+          String(fromGodown || "") === String(searchFromShop)
+        );
+      });
+    }
+
+    if (searchToShop) {
+      filtered = filtered.filter((t) => {
+        const toShop = t.toShopId?._id || t.toShopId || null;
+        const toGodown = t.toGodownId?._id || t.toGodownId || null;
+        return (
+          String(toShop || "") === String(searchToShop) ||
+          String(toGodown || "") === String(searchToShop)
+        );
+      });
+    }
+
+    // -----------------------------
     // DATE FILTERS
     // -----------------------------
     if (fromDate && toDate) {
       const start = new Date(fromDate);
       const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
 
       filtered = filtered.filter((t) => {
         const date = new Date(t.transferDate);
@@ -501,6 +533,7 @@ const StockTransferPage = () => {
       filtered = filtered.filter((t) => new Date(t.transferDate) >= start);
     } else if (toDate) {
       const end = new Date(toDate);
+      end.setHours(23, 59, 59, 999);
       filtered = filtered.filter((t) => new Date(t.transferDate) <= end);
     }
 
@@ -607,6 +640,14 @@ const StockTransferPage = () => {
     setSearchToShop("");
     setFromDate("");
     setToDate("");
+    setSearchProduct("");
+    fetchTransfers(1, {
+      searchFromShop: "",
+      searchToShop: "",
+      fromDate: "",
+      toDate: "",
+      searchProduct: "",
+    });
   };
 
   return (
@@ -648,7 +689,11 @@ const StockTransferPage = () => {
                 type="date"
                 size="small"
                 value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFromDate(value);
+                  fetchTransfers(1, { fromDate: value });
+                }}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
                 label="From Date"
@@ -666,7 +711,11 @@ const StockTransferPage = () => {
                 type="date"
                 size="small"
                 value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setToDate(value);
+                  fetchTransfers(1, { toDate: value });
+                }}
                 fullWidth
                 InputLabelProps={{ shrink: true }}
                 label="To Date"
@@ -687,8 +736,9 @@ const StockTransferPage = () => {
                 }
                 value={locations.find((l) => l._id === searchFromShop) || null}
                 onChange={(e, newValue) => {
-                  setSearchFromShop(newValue?._id || "");
-                  fetchTransfers(1);
+                  const nextFrom = newValue?._id || "";
+                  setSearchFromShop(nextFrom);
+                  fetchTransfers(1, { searchFromShop: nextFrom });
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -708,8 +758,9 @@ const StockTransferPage = () => {
                 }
                 value={locations.find((l) => l._id === searchToShop) || null}
                 onChange={(e, newValue) => {
-                  setSearchToShop(newValue?._id || "");
-                  fetchTransfers(1);
+                  const nextTo = newValue?._id || "";
+                  setSearchToShop(nextTo);
+                  fetchTransfers(1, { searchToShop: nextTo });
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -726,8 +777,9 @@ const StockTransferPage = () => {
                 options={allProducts.map((p) => getLocalizedText(p.name, lang))}
                 value={searchProduct}
                 onChange={(event, newValue) => {
-                  setSearchProduct(newValue || "");
-                  fetchTransfers(1); // call API when selecting or typing
+                  const nextProduct = newValue || "";
+                  setSearchProduct(nextProduct);
+                  fetchTransfers(1, { searchProduct: nextProduct });
                 }}
                 renderInput={(params) => (
                   <TextField
@@ -831,7 +883,7 @@ const StockTransferPage = () => {
                       ) : (
                         filteredTransfers.map((t, index) => (
                           <motion.tr
-                            key={t._id}
+                           key={t.transferId || t._id}
                             variants={itemVariants}
                             style={{ borderBottom: "1px solid #eee" }}
                           >
@@ -908,7 +960,7 @@ const StockTransferPage = () => {
                   ) : (
                     filteredTransfers.map((t, index) => (
                       <motion.div
-                        key={t._id}
+                        key={t.transferId || t._id}
                         variants={itemVariants}
                         initial="hidden"
                         animate="visible"

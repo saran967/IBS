@@ -5,6 +5,12 @@ import mongoose from "mongoose";
 
 const StockTransferSchema = new mongoose.Schema(
   {
+transferId: {
+  type: String,
+  unique: true,
+  index: true,
+},
+
     financialYearId: {
   type: mongoose.Schema.Types.ObjectId,
   ref: "FinancialYear",
@@ -92,6 +98,34 @@ StockTransferSchema.pre("validate", function (next) {
     return next(new Error("Either toShopId or toGodownId must be provided."));
 
   next();
+});
+
+StockTransferSchema.pre("save", async function (next) {
+  try {
+    if (!this.isNew) return next(); // only generate for new documents
+
+    if (!this.transferId) {
+
+      const lastTransfer = await mongoose
+        .model("StockTransfer")
+        .findOne()
+        .sort({ createdAt: -1 })
+        .select("transferId");
+
+      let nextNumber = 1;
+
+      if (lastTransfer && lastTransfer.transferId) {
+        const lastNumber = parseInt(lastTransfer.transferId.replace("TRF", ""));
+        nextNumber = lastNumber + 1;
+      }
+
+      this.transferId = `TRF${String(nextNumber).padStart(5, "0")}`;
+    }
+
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default mongoose.model("StockTransfer", StockTransferSchema);

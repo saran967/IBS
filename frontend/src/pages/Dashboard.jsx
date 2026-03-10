@@ -39,16 +39,20 @@ export default function Dashboard() {
         const { data } = await customFetch.get("/dashboard/summary");
 
         setSummary(data);
-        setLatestSales(data.recentSales ?? []);
+        setLatestSales(data.recentSales ?? data.latestSales ?? []);
         setLatestPurchases(
-          (data.recentPurchases || []).map((p) => ({
+          (data.recentPurchases || data.latestPurchases || []).map((p) => ({
             ...p,
             date: p.purchaseDate || p.createdAt,
             vendor: p.vendor || p.vendorId,
           })),
         );
 
-        setTransfers(data.recentTransfers ?? []);
+        setTransfers(
+          Array.isArray(data.recentTransfers)
+            ? data.recentTransfers
+            : data.recentTransfers?.transfers || [],
+        );
         setLowStockItems(data.lowStockItems ?? []);
 
         // Pass 30 day history to charts instead of just the latest 5-10 items

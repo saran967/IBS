@@ -668,7 +668,7 @@ const OrderForm = ({
                         setOrderRows(synced);
                       }}
                       renderInput={(params) => (
-                        <TextField {...params} label="Customer" size="small" />
+                        <TextField {...params} label="Customer *" size="small" />
                       )}
                       renderOption={(props, option) => {
                         // Use _id as key to avoid duplicate key warning if names are same
@@ -712,7 +712,7 @@ const OrderForm = ({
                       renderInput={(params) => (
                         <TextField
                           {...params}
-                          label="Shop / Godown"
+                          label="Shop / Godown *"
                           size="small"
                           placeholder="Search shop or godown"
                         />
@@ -748,7 +748,7 @@ const OrderForm = ({
                       renderInput={(params) => (
                         <TextField
                           {...params}
-                          label="Product"
+                          label="Product *"
                           size="small"
                           placeholder="Search by code / name"
                         />
@@ -810,7 +810,7 @@ const OrderForm = ({
                   <Grid item xs={12} sm={6} md={3}>
                     <TextField
                       sx={{ minWidth: 150 }}
-                      label="Quantity"
+                      label="Quantity *"
                       type="number"
                       value={row.quantity}
                       onChange={(e) => {

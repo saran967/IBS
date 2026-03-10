@@ -190,11 +190,10 @@ const ShopList = () => {
   };
 
   const filteredShops = shops.filter((s) => {
-    const nameEn = s.name?.en?.toLowerCase() || "";
-    const nameTa = s.name?.ta?.toLowerCase() || "";
-    const q = search.toLowerCase();
-    return nameEn.includes(q) || nameTa.includes(q);
-  });
+  const shopName = getLocalizedText(s.name, "both").toLowerCase();
+  const q = search.trim().toLowerCase();
+  return shopName.includes(q);
+});
 
   if (loading)
     return (
@@ -234,7 +233,7 @@ const ShopList = () => {
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Shop Name (English)"
+              label="Shop Name (English) *"
               name="name_en"
               value={formData.name_en}
               onChange={handleChange}

@@ -65,14 +65,17 @@ export const getTransfers = async (req, res) => {
 
 
     // Date filter
-    if (startDate && endDate) {
+    if (startDate || endDate) {
+      const transferDate = {};
+      if (startDate) transferDate.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        transferDate.$lte = end;
+      }
+
       filter.$and = filter.$and || [];
-      filter.$and.push({
-        transferDate: {
-          $gte: new Date(startDate),
-          $lte: new Date(endDate + "T23:59:59.999"),
-        },
-      });
+      filter.$and.push({ transferDate });
     }
 
     // If no AND filters added → remove it

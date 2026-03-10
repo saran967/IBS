@@ -91,9 +91,39 @@ const TableHeader = ({ icon, title, subtitle, onExport }) => (
 export default function DashboardTables({
   latestSales = [],
   latestPurchases = [],
-  stockTransfers = {},
+  stockTransfers = [],
 }) {
   const navigate = useNavigate();
+  const transferRows = (Array.isArray(stockTransfers)
+    ? stockTransfers
+    : stockTransfers?.transfers || []
+  )
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.transferDate || b.createdAt || 0) -
+        new Date(a.transferDate || a.createdAt || 0),
+    )
+    .slice(0, 6);
+
+  const purchaseRows = (latestPurchases || [])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.purchaseDate || b.date || b.createdAt || 0) -
+        new Date(a.purchaseDate || a.date || a.createdAt || 0),
+    )
+    .slice(0, 6);
+
+  const salesRows = (latestSales || [])
+    .slice()
+    .sort(
+      (a, b) =>
+        new Date(b.saleDate || b.date || b.createdAt || 0) -
+        new Date(a.saleDate || a.date || a.createdAt || 0),
+    )
+    .slice(0, 6);
+
   return (
     <Grid container spacing={3} sx={{ width: "100%", mt: 0 }}>
       {/* SALES TABLE */}
@@ -146,8 +176,7 @@ export default function DashboardTables({
                 </TableHead>
 
                 <TableBody>
-                  {!stockTransfers.transfers ||
-                  stockTransfers.transfers.length === 0 ? (
+                  {transferRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
                         <Typography variant="body2" color="text.secondary">
@@ -156,10 +185,7 @@ export default function DashboardTables({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    stockTransfers.transfers
-                      .slice(-6)
-                      .reverse()
-                      .map((row) => {
+                    transferRows.map((row) => {
                         const productName = getText(row.productId?.name);
 
                         const fromName = getText(
@@ -257,7 +283,7 @@ export default function DashboardTables({
                 </TableHead>
 
                 <TableBody>
-                  {latestPurchases.length === 0 ? (
+                  {purchaseRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
                         <Typography variant="body2" color="text.secondary">
@@ -266,10 +292,7 @@ export default function DashboardTables({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    latestPurchases
-                      .slice(-6)
-                      .reverse()
-                      .map((row, index) => (
+                    purchaseRows.map((row, index) => (
                         <TableRow
                           key={index}
                           hover
@@ -364,7 +387,7 @@ export default function DashboardTables({
                 </TableHead>
 
                 <TableBody>
-                  {latestSales.length === 0 ? (
+                  {salesRows.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
                         <Typography variant="body2" color="text.secondary">
@@ -373,10 +396,7 @@ export default function DashboardTables({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    latestSales
-                      .slice(-6)
-                      .reverse()
-                      .map((row, index) => (
+                    salesRows.map((row, index) => (
                         <TableRow
                           key={index}
                           hover

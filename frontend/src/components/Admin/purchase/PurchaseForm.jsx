@@ -409,7 +409,7 @@ export default function PurchaseForm({ onSuccess }) {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Product"
+                  label="Product *"
                   size="small"
                   placeholder="Search by code / name"
                   InputProps={{
@@ -431,7 +431,7 @@ export default function PurchaseForm({ onSuccess }) {
             <TextField
               fullWidth
               select
-              label="Vendor"
+              label="Vendor *"
               name="vendor"
               value={formData.vendor}
               onChange={(e) => {
@@ -494,7 +494,7 @@ export default function PurchaseForm({ onSuccess }) {
                 select
                 fullWidth
                 size="small"
-                label="Select SKU"
+                label="Select SKU *"
                 value={skuId}
                 onChange={(e) => setSkuId(e.target.value)}
                 disabled={!product}
@@ -513,7 +513,7 @@ export default function PurchaseForm({ onSuccess }) {
           {purchaseType === "SKU" && (
             <Grid item xs={12} sm={6} md={2}>
               <TextField
-                label="Total Packs"
+                label="Total Packs *"
                 name="totalPacks"
                 type="number"
                 value={formData.totalPacks}
@@ -535,7 +535,7 @@ export default function PurchaseForm({ onSuccess }) {
           {purchaseType === "LOOSE" && (
             <Grid item xs={12} sm={6} md={2}>
               <TextField
-                label={`Quantity (${getUiUnitLabel(product)})`}
+                label={`Quantity (${getUiUnitLabel(product)}) *`}
                 helperText={`Enter in ${getUiUnitLabel(product)} (eg: 1, 2.5)`}
                 name="baseQty"
                 type="number"
@@ -559,8 +559,8 @@ export default function PurchaseForm({ onSuccess }) {
             <TextField
               label={
                 purchaseType === "SKU"
-                  ? "Unit Price (₹ per pack) "
-                  : `Unit Price (₹ per ${getUiUnitLabel(product)}) `
+                  ? "Unit Price (₹ per pack) *"
+                  : `Unit Price (₹ per ${getUiUnitLabel(product)}) *`
               }
               name="unitPrice"
               type="number"

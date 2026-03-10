@@ -61,10 +61,10 @@ export default function CustomerSection({
       </Box>
 
       <FormControl fullWidth size="small">
-        <InputLabel>Select Customer</InputLabel>
+        <InputLabel>Select Customer *</InputLabel>
         <Select
           value={selectedCustomer}
-          label="Select Customer"
+          label="Select Customer *"
           onChange={(e) => {
             if (e.target.value === "new") {
               setOpenCustomerModal(true);

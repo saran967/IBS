@@ -22,7 +22,10 @@ export const getDashboardSummary = async (req, res) => {
         pendingTransfers: 0,
         recentSales: [],
         recentPurchases: [],
+        recentTransfers: [],
         lowStockItems: [],
+        sales30Days: [],
+        purchases30Days: [],
         stats30Days: [],
       });
     }
@@ -40,6 +43,7 @@ export const getDashboardSummary = async (req, res) => {
       lowStockAggResult,
       recentSales,
       recentPurchases,
+      recentTransfers,
       pendingTransfers,
       sales30Days,
       purchases30Days,
@@ -137,6 +141,17 @@ export const getDashboardSummary = async (req, res) => {
         .populate("vendorId", "name")
         .lean(),
 
+      // Recent Stock Transfers (for tables)
+      StockTransfer.find({ financialYearId: activeFY._id })
+        .sort({ transferDate: -1, createdAt: -1 })
+        .limit(10)
+        .populate("productId", "name")
+        .populate("fromShopId", "name")
+        .populate("toShopId", "name")
+        .populate("fromGodownId", "name")
+        .populate("toGodownId", "name")
+        .lean(),
+
       StockTransfer.countDocuments({ financialYearId: activeFY._id, status: { $ne: "approved" } }),
 
       // 30 Days Sales (for charts)
@@ -164,6 +179,7 @@ export const getDashboardSummary = async (req, res) => {
       pendingTransfers,
       recentSales,
       recentPurchases,
+      recentTransfers,
       lowStockItems: lowStockAggResult.slice(0, 10),
       sales30Days,
       purchases30Days,

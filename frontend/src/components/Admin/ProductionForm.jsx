@@ -249,7 +249,7 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <TextField fullWidth size="small" label="Name (EN)" name="name_en" value={formData.name_en} onChange={handleChange} />
+          <TextField fullWidth size="small" label="Name (EN) *" name="name_en" value={formData.name_en} onChange={handleChange} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <TextField fullWidth size="small" label="Name (TA)" name="name_ta" value={formData.name_ta} onChange={handleChange} />
@@ -351,7 +351,7 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <TextField fullWidth size="small" label="Product Code" name="productCode" value={formData.productCode} onChange={handleChange} />
+          <TextField fullWidth size="small" label="Product Code *" name="productCode" value={formData.productCode} onChange={handleChange} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <TextField fullWidth size="small" label="Min Stock Alert" name="minStockLevel" value={formData.minStockLevel} onChange={handleChange} />

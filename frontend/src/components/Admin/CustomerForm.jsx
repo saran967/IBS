@@ -384,7 +384,7 @@ openingBalance: Number(formData.openingBalance),
           {/* CUSTOMER NAME (ENGLISH) */}
           <Grid item xs={12} sm={6}>
             <TextField
-              label="Customer Name (English)"
+              label="Customer Name (English) *"
               name="customerName_en"
               value={formData.customerName_en}
               onChange={handleChange}
@@ -620,7 +620,7 @@ openingBalance: Number(formData.openingBalance),
                     <Grid container spacing={3}>
                       <Grid item xs={12} sm={6}>
                         <TextField
-                          label="Company Name"
+                          label="Company Name *"
                           name="companyName"
                           value={company.companyName}
                           onChange={(e) => handleCompanyChange(index, e)}

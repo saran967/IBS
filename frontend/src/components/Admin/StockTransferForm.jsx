@@ -396,7 +396,7 @@ const StockTransfer = ({ onTransferComplete }) => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="From Shop / Godown"
+                    label="From Shop / Godown *"
                     size="small"
                     sx={{ width: 200 }}
                   />
@@ -417,7 +417,7 @@ const StockTransfer = ({ onTransferComplete }) => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="To Shop / Godown"
+                    label="To Shop / Godown *"
                     size="small"
                     sx={{ width: 200 }}
                   />
@@ -450,7 +450,7 @@ const StockTransfer = ({ onTransferComplete }) => {
                   <TextField
                     sx={{ width: 200 }}
                     {...params}
-                    label="Product"
+                    label="Product *"
                     size="small"
                     placeholder="Search by code / name"
                     fullWidth
@@ -461,7 +461,7 @@ const StockTransfer = ({ onTransferComplete }) => {
 
             <Grid item xs={12}>
               <TextField
-                label="Quantity"
+                label="Quantity *"
                 name="quantity"
                 type="number"
                 value={transfer.quantity}
@@ -600,7 +600,7 @@ const StockTransfer = ({ onTransferComplete }) => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="From Shop / Godown"
+                        label="From Shop / Godown *"
                         size="small"
                         sx={{ width: 200 }}
                       />
@@ -625,7 +625,7 @@ const StockTransfer = ({ onTransferComplete }) => {
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="To Shop / Godown"
+                        label="To Shop / Godown *"
                         size="small"
                         sx={{ width: 200 }}
                       />
@@ -661,7 +661,7 @@ const StockTransfer = ({ onTransferComplete }) => {
                       renderInput={(params) => (
                         <TextField
                           {...params}
-                          label="Product"
+                          label="Product *"
                           size="small"
                           placeholder="Search by code / name"
                           fullWidth
@@ -708,7 +708,7 @@ const StockTransfer = ({ onTransferComplete }) => {
 
                   {/* Quantity */}
                   <TextField
-                    label="Quantity"
+                    label="Quantity *"
                     name="quantity"
                     type="number"
                     value={transfer.quantity}
