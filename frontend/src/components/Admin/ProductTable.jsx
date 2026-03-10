@@ -61,6 +61,7 @@ const ProductTable = ({
   lang,
   products,
   onToggleDelivery,
+  onToggleInventory,
   onEdit,
   onDelete,
   onPriceHistory,
@@ -298,7 +299,7 @@ const ProductTable = ({
 
     <div class="row">Packed date : ${formatDate(p.packedDate)}</div>
     <div class="row">Use by date : ${formatDate(p.useByDate)}</div>
-    <div class="row">MRP : ₹${p.mrp}</div>
+    <div class="row">MRP : ${Array.isArray(p.mrp) && p.mrp.length > 0 ? p.mrp.map(m => '₹'+m).join(', ') : '₹'+(p.mrp || 0)}</div>
 
     ${p.fssaiNumber
         ? `
@@ -396,7 +397,7 @@ const ProductTable = ({
 
         <div class="row">Packed date : ${formatDate(p.packedDate)}</div>
         <div class="row">Use by date : ${formatDate(p.useByDate)}</div>
-        <div class="row">MRP : ₹${p.mrp}</div>
+        <div class="row">MRP : ${Array.isArray(p.mrp) && p.mrp.length > 0 ? p.mrp.map(m => '₹'+m).join(', ') : '₹'+(p.mrp || 0)}</div>
 
         ${p.fssaiNumber
           ? `
@@ -476,6 +477,7 @@ const ProductTable = ({
     barcode: lang === "ta" ? "பார்க்கோடு" : "Barcode",
     sku: "SKU",
     details: lang === "ta" ? "விவரம்" : "Details",
+    inventory: lang === "ta" ? "இருப்பு" : "Inventory",
     delivery: lang === "ta" ? "டெலிவரி" : "Delivery",
     action: lang === "ta" ? "செயல்" : "Action",
   };
@@ -652,6 +654,15 @@ const ProductTable = ({
                       <IconButton size="small" onClick={(e) => { stop(e); openDetails(p); }}>
                         <Typography variant="caption" color="primary">View</Typography>
                       </IconButton>
+                    </TableCell>
+
+                    <TableCell align="center" onClick={stop}>
+                      <Switch
+                        checked={p.maintainInventory !== false}
+                        onChange={() => onToggleInventory?.(p._id, p.maintainInventory !== false)}
+                        size="small"
+                        color="primary"
+                      />
                     </TableCell>
 
                     <TableCell align="center" onClick={stop}>

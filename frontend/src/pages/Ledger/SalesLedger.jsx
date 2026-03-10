@@ -161,9 +161,17 @@ export default function SalesLedger() {
         <Box display="flex" gap={2}>
           <Button variant="contained" onClick={exportPDF} sx={{ borderRadius: 2, px: 3, bgcolor: "#4285F4" }}>Export PDF</Button>
           <Button variant="contained" onClick={() => {
-            const worksheet = XLSX.utils.json_to_sheet(ledger);
+            const excelData = ledger.map(row => ({
+              Date: new Date(row.date).toLocaleDateString(),
+              Invoice: row.invoiceNumber || "-",
+              Customer: normalizeLabel(row.customer),
+              "Bill Amount": row.billAmount || 0,
+              "Paid Amount": row.paidAmount || 0,
+              Balance: row.balanceAmount || 0,
+            }));
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Sales");
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Ledger");
             XLSX.writeFile(workbook, "SalesLedger.xlsx");
           }} sx={{ borderRadius: 2, px: 3, bgcolor: "#34A853" }}>Export Excel</Button>
         </Box>

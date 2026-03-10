@@ -40,7 +40,8 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
     sellingPriceforB2B: "",
     sellingPriceforAgent: "",
     minStockLevel: "",
-    mrp: "",
+    mrp: [""],
+    maintainInventory: true,
   });
 
   const [categories, setCategories] = useState([]);
@@ -71,10 +72,11 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         fssaiNumber: editProduct.fssaiNumber || "",
         packedDate: editProduct.packedDate ? editProduct.packedDate.split("T")[0] : "",
         useByDate: editProduct.useByDate ? editProduct.useByDate.split("T")[0] : "",
-        mrp: editProduct.mrp || "",
+        mrp: Array.isArray(editProduct.mrp) && editProduct.mrp.length > 0 ? editProduct.mrp : (editProduct.mrp ? [editProduct.mrp] : [""]),
         sellingPriceforB2B: editProduct.sellingPriceforB2B || "",
         sellingPriceforAgent: editProduct.sellingPriceforAgent || "",
         minStockLevel: editProduct.minStockLevel || "",
+        maintainInventory: editProduct.maintainInventory ?? true,
       });
     } else {
       setFormData({
@@ -83,8 +85,9 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         purchasePrice: "", profitPercentage: "", sellingPrice: "",
         cgstPercentage: "", sgstPercentage: "", hsnCode: "",
         allowRetail: false, baseUnitType: "G", fssaiNumber: "",
-        packedDate: "", useByDate: "", mrp: "",
-        sellingPriceforB2B: "", sellingPriceforAgent: "", minStockLevel: ""
+        packedDate: "", useByDate: "", mrp: [""],
+        sellingPriceforB2B: "", sellingPriceforAgent: "", minStockLevel: "",
+        maintainInventory: true,
       });
     }
   }, [editProduct]);
@@ -109,7 +112,7 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
     const { name, value } = e.target;
     const numberFields = [
       "weight", "purchasePrice", "profitPercentage", "sellingPrice",
-      "cgstPercentage", "sgstPercentage", "fssaiNumber", "mrp",
+      "cgstPercentage", "sgstPercentage", "fssaiNumber",
       "sellingPriceforB2B", "sellingPriceforAgent", "minStockLevel"
     ];
 
@@ -165,11 +168,12 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         fssaiNumber: formData.fssaiNumber,
         packedDate: formData.packedDate,
         useByDate: formData.useByDate,
-        mrp: Number(formData.mrp || 0),
+        mrp: formData.mrp.map(m => Number(m)).filter(m => m > 0),
         sellingPriceforB2B: Number(formData.sellingPriceforB2B || 0),
         sellingPriceforB2C: Number(formData.sellingPrice || 0),
         sellingPriceforAgent: Number(formData.sellingPriceforAgent || 0),
         minStockLevel: Number(formData.minStockLevel || 0),
+        maintainInventory: formData.maintainInventory,
       };
 
       if (editProduct) {
@@ -189,9 +193,10 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
           purchasePrice: "", profitPercentage: "", sellingPrice: "",
           cgstPercentage: "", sgstPercentage: "", hsnCode: "",
           allowRetail: false, baseUnitType: "G", fssaiNumber: "",
-          packedDate: "", useByDate: "", mrp: "",
+          packedDate: "", useByDate: "", mrp: [""],
           sellingPriceforB2B: "",
-          sellingPriceforAgent: "", minStockLevel: ""
+          sellingPriceforAgent: "", minStockLevel: "",
+          maintainInventory: true,
         });
       }
     } catch (err) {
@@ -323,7 +328,34 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
           <TextField fullWidth size="small" label="Selling Price (Retail / B2C)" name="sellingPrice" value={formData.sellingPrice} onChange={handleChange} InputProps={{ startAdornment: "₹" }} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <TextField fullWidth size="small" label="MRP" name="mrp" value={formData.mrp} onChange={handleChange} InputProps={{ startAdornment: "₹" }} />
+          <Box display="flex" flexDirection="column" gap={1}>
+            {formData.mrp.map((mrpValue, index) => (
+              <Box key={index} display="flex" alignItems="center" gap={1}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={formData.mrp.length > 1 ? `MRP ${index + 1}` : "MRP"}
+                  value={mrpValue}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val !== "" && !/^\d*\.?\d*$/.test(val)) return;
+                    const newMrp = [...formData.mrp];
+                    newMrp[index] = val;
+                    setFormData(prev => ({ ...prev, mrp: newMrp }));
+                  }}
+                  InputProps={{ startAdornment: "₹" }}
+                />
+                {index === formData.mrp.length - 1 ? (
+                  <Button variant="outlined" sx={{ minWidth: "40px", p: "6px" }} onClick={() => setFormData(prev => ({ ...prev, mrp: [...prev.mrp, ""] }))}>+</Button>
+                ) : (
+                  <Button variant="outlined" color="error" sx={{ minWidth: "40px", p: "6px" }} onClick={() => {
+                    const newMrp = formData.mrp.filter((_, i) => i !== index);
+                    setFormData(prev => ({ ...prev, mrp: newMrp }));
+                  }}>-</Button>
+                )}
+              </Box>
+            ))}
+          </Box>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
@@ -367,13 +399,24 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         </Grid>
 
         <Grid item xs={12}>
-          <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 2, display: "inline-block" }}>
+          <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 2, display: "inline-block", mr: 2 }}>
             <FormControlLabel
               control={<Checkbox checked={formData.allowRetail} onChange={e => setFormData(prev => ({ ...prev, allowRetail: e.target.checked }))} />}
               label={
                 <Box>
                   <Typography variant="body1" fontWeight={600}>Enable Retail Variants (SKU)</Typography>
                   <Typography variant="caption" color="text.secondary">Allows multi-pack sizes</Typography>
+                </Box>
+              }
+            />
+          </Box>
+          <Box sx={{ p: 2, bgcolor: "info.light", borderRadius: 2, display: "inline-block", color: "info.contrastText" }}>
+            <FormControlLabel
+              control={<Checkbox checked={formData.maintainInventory} onChange={e => setFormData(prev => ({ ...prev, maintainInventory: e.target.checked }))} color="default" />}
+              label={
+                <Box>
+                  <Typography variant="body1" fontWeight={600}>Maintain Inventory</Typography>
+                  <Typography variant="caption" color="inherit">Track product stock level</Typography>
                 </Box>
               }
             />

@@ -42,9 +42,11 @@ export default function InventoryList() {
   const [loading, setLoading] = useState(false);
 
   const [categories, setCategories] = useState([]);
-  const [combinedLocations, setCombinedLocations] = useState([]);
+  const [shopsList, setShopsList] = useState([]);
+  const [godownsList, setGodownsList] = useState([]);
 
-  const [selectedLocation, setSelectedLocation] = useState("");
+  const [selectedShop, setSelectedShop] = useState("");
+  const [selectedGodown, setSelectedGodown] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [stockStatusFilter, setStockStatusFilter] = useState("ALL");
@@ -178,35 +180,24 @@ export default function InventoryList() {
         parentShopId: g.shopId?._id || g.shopId,
       }));
 
-      const merged = [...formattedShops, ...formattedGodowns];
-
       if (currentUser?.role === "admin") {
-        setCombinedLocations(merged);
+        setShopsList(formattedShops);
+        setGodownsList(formattedGodowns);
       } else {
         const userShopId =
           typeof currentUser.shopId === "object"
             ? currentUser.shopId._id
             : currentUser.shopId;
 
-        // For subadmin & employee → show their shop + all godowns under it
-        const filtered = merged.filter((loc) => {
-          // Shop match
-          if (loc.type === "Shop" && String(loc._id) === String(userShopId)) {
-            return true;
-          }
+        const filteredShops = formattedShops.filter(
+          (s) => String(s._id) === String(userShopId)
+        );
+        const filteredGodowns = formattedGodowns.filter(
+          (g) => String(g.parentShopId) === String(userShopId)
+        );
 
-          // Godown under this shop
-          if (
-            loc.type === "Godown" &&
-            String(loc.parentShopId) === String(userShopId)
-          ) {
-            return true;
-          }
-
-          return false;
-        });
-
-        setCombinedLocations(filtered);
+        setShopsList(filteredShops);
+        setGodownsList(filteredGodowns);
       }
     } catch (error) {
       console.log("Shop/Godown Load ERROR:", error);
@@ -277,11 +268,8 @@ export default function InventoryList() {
         // ✔ show items in godowns under this shop
         if (
           inv.godownId?._id &&
-          combinedLocations.some(
-            (loc) =>
-              loc.type === "Godown" &&
-              String(loc._id) === String(inv.godownId._id) &&
-              String(loc.parentShopId) === String(shopId),
+          godownsList.some(
+            (g) => String(g._id) === String(inv.godownId._id)
           )
         ) {
           return true;
@@ -291,12 +279,17 @@ export default function InventoryList() {
       });
     }
 
-    // Filter by Shop or Godown
-    if (selectedLocation) {
+    // Filter by Shop
+    if (selectedShop) {
       filtered = filtered.filter(
-        (inv) =>
-          String(inv.shopId?._id) === String(selectedLocation) ||
-          String(inv.godownId?._id) === String(selectedLocation),
+        (inv) => String(inv.shopId?._id) === String(selectedShop)
+      );
+    }
+
+    // Filter by Godown
+    if (selectedGodown) {
+      filtered = filtered.filter(
+        (inv) => String(inv.godownId?._id) === String(selectedGodown)
       );
     }
 
@@ -345,11 +338,13 @@ export default function InventoryList() {
     setPage(1);
   }, [
     productFilter,
-    selectedLocation,
+    selectedShop,
+    selectedGodown,
     selectedCategory,
     stockStatusFilter,
     inventory,
     currentUser,
+    godownsList,
   ]);
 
   // ---------------- Paginated Data ----------------
@@ -371,7 +366,7 @@ export default function InventoryList() {
     }
 
     if (inv.godownId?._id) {
-      const godown = combinedLocations.find(
+      const godown = godownsList.find(
         (g) => String(g._id) === String(inv.godownId._id),
       );
 
@@ -603,44 +598,35 @@ export default function InventoryList() {
         />
 
         {currentUser && (
-          <Autocomplete
-            size="small"
-            sx={{ minWidth: 250 }}
-            options={[
-              { _id: "", name: "All Locations", type: "" },
-              ...combinedLocations,
-            ]}
-            isOptionEqualToValue={(option, value) =>
-              String(option._id) === String(value?._id)
-            }
-            getOptionLabel={(option) => {
-              if (option._id === "") return "All";
+          <>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Shop</InputLabel>
+              <Select
+                value={selectedShop}
+                onChange={(e) => setSelectedShop(e.target.value)}
+                label="Shop"
+              >
+                <MenuItem value="">All Shops</MenuItem>
+                {shopsList.map((s) => (
+                  <MenuItem key={s._id} value={s._id}>{s.name || "—"}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-              const name =
-                typeof option.name === "string"
-                  ? option.name
-                  : getText(option.name);
-              console.log(name);
-
-              return `${name} (${option.type})`;
-            }}
-            value={
-              [
-                { _id: "", name: "All Locations", type: "" },
-                ...combinedLocations,
-              ].find((opt) => String(opt._id) === String(selectedLocation)) || {
-                _id: "",
-                name: "All Locations",
-                type: "",
-              }
-            }
-            onChange={(e, value) => {
-              setSelectedLocation(value?._id || "");
-            }}
-            renderInput={(params) => (
-              <TextField {...params} label="Filter Shop/Godown" />
-            )}
-          />
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>Godown</InputLabel>
+              <Select
+                value={selectedGodown}
+                onChange={(e) => setSelectedGodown(e.target.value)}
+                label="Godown"
+              >
+                <MenuItem value="">All Godowns</MenuItem>
+                {godownsList.map((g) => (
+                  <MenuItem key={g._id} value={g._id}>{g.name || "—"}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </>
         )}
 
         <FormControl size="small" sx={{ minWidth: 200 }}>

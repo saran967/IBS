@@ -465,6 +465,7 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
           console.log(resolved.shopId, "shop data");
 
           const product = it.productId || {};
+          const maintainInventory = product.maintainInventory !== false;
           const baseUnit = product.unit?.en || product.unit || it.unit || "";
           const price =
             it.price !== undefined ? it.price : it.productId?.sellingPrice || 0;
@@ -473,6 +474,7 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
             godownId: resolved.godownId,
             locationObj: null,
             productId: it.productId._id,
+            maintainInventory: maintainInventory,
             productCode: it.productId.productCode,
             hsnCode: it.productId.hsnCode || "",
             name: it.productId.name?.en || "",
@@ -751,21 +753,28 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
           return;
         }
 
-        const stockRes = await customFetch.get("/inventory/stock/sales", {
-          params: {
-            productId: p._id,
-            shopId: currentRow.shopId || null,
-            godownId: currentRow.godownId || null,
-          },
-        });
+        let stockRes = { data: { availablePacks: null, availableWeight: null } };
+        let batchesRes = { data: { batches: [] } };
 
-        const batchesRes = await customFetch.get("/inventory/batches", {
-          params: {
-            productId: p._id,
-            shopId: currentRow.shopId || null,
-            godownId: currentRow.godownId || null,
-          },
-        });
+        const maintainInventory = p.maintainInventory !== false;
+
+        if (maintainInventory) {
+          stockRes = await customFetch.get("/inventory/stock/sales", {
+            params: {
+              productId: p._id,
+              shopId: currentRow.shopId || null,
+              godownId: currentRow.godownId || null,
+            },
+          });
+
+          batchesRes = await customFetch.get("/inventory/batches", {
+            params: {
+              productId: p._id,
+              shopId: currentRow.shopId || null,
+              godownId: currentRow.godownId || null,
+            },
+          });
+        }
 
         setItems((prev) => {
           const newItems = [...prev];
@@ -773,9 +782,10 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
 
           //  Assign product fields
           row.productId = p._id;
+          row.maintainInventory = maintainInventory;
           row.availablePacks = stockRes.data.availablePacks;
           row.availableWeight = stockRes.data.availableWeight;
-          row.batches = batchesRes.data.batches || [];
+          row.batches = batchesRes.data?.batches || [];
           row.inventoryId = ""; // default FIFO (Auto)
 
           row.name = p.name?.en || "";
@@ -808,6 +818,7 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
           row.skuId = null;
           row.isLoose = false;
           row.looseUnit = "";
+          row.maintainInventory = maintainInventory;
 
           //  GST % from product
           const cgstPerc =
@@ -854,19 +865,22 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
   const handleItemChange = async (index, field, value) => {
     if (field === "quantity") {
       const row = items[index];
-      const baseUnit = String(row.productBaseUnit || "").toLowerCase();
 
-      let maxQty;
-      if (["kg", "l", "ltr"].includes(baseUnit)) {
-        // weight / volume products
-        maxQty = row.availableWeight;
-      } else {
-        // PCS / count-based products
-        maxQty = row.availablePacks;
-      }
-      if (maxQty !== null && Number(value) > maxQty) {
-        toast.error(`Only ${maxQty} available`);
-        return;
+      if (row.productId && row.maintainInventory !== false) {
+        const baseUnit = String(row.productBaseUnit || "").toLowerCase();
+
+        let maxQty;
+        if (["kg", "l", "ltr"].includes(baseUnit)) {
+          // weight / volume products
+          maxQty = row.availableWeight;
+        } else {
+          // PCS / count-based products
+          maxQty = row.availablePacks;
+        }
+        if (maxQty !== null && Number(value) > maxQty) {
+          toast.error(`Only ${maxQty} available`);
+          return;
+        }
       }
     }
 
@@ -968,17 +982,21 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
         return;
       }
 
-      if (row.productId) {
-        const res = await customFetch.get("/inventory/stock/sales", {
-          params: {
-            productId: row.productId,
-            shopId: row.shopId,
-            godownId: row.godownId || null,
-          },
-        });
+      if (row.productId && row.maintainInventory !== false) {
+        try {
+          const res = await customFetch.get("/inventory/stock/sales", {
+            params: {
+              productId: row.productId,
+              shopId: row.shopId,
+              godownId: row.godownId || null,
+            },
+          });
 
-        row.availablePacks = res.data.availablePacks;
-        row.availableWeight = res.data.availableWeight;
+          row.availablePacks = res.data.availablePacks;
+          row.availableWeight = res.data.availableWeight;
+        } catch (err) {
+          console.warn("Stock fetch failed in unit change");
+        }
       }
 
       //   FALLBACK

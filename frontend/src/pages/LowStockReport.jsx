@@ -18,6 +18,7 @@ import {
 import { Download, Refresh } from "@mui/icons-material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import customFetch from "../utils/customFetch";
 import { toast } from "react-toastify";
 import { useLanguage } from "../context/LanguageContext";
@@ -25,16 +26,45 @@ import { useLanguage } from "../context/LanguageContext";
 export default function LowStockReport() {
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
+    const [categories, setCategories] = useState([]);
+    
     const [shops, setShops] = useState([]);
     const [godowns, setGodowns] = useState([]);
+    
     const [selectedShop, setSelectedShop] = useState("");
     const [selectedGodown, setSelectedGodown] = useState("");
+    const [productFilter, setProductFilter] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState("");
+
     const language = useLanguage() || "en";
 
     useEffect(() => {
         fetchLocations();
         fetchReport();
     }, [selectedShop, selectedGodown]);
+
+    useEffect(() => {
+        let result = [...data];
+
+        if (productFilter.trim()) {
+            const lower = productFilter.toLowerCase();
+            result = result.filter(item => 
+                (item.productCode?.toLowerCase() || "").includes(lower) ||
+                (item.productName?.en?.toLowerCase() || "").includes(lower) ||
+                (item.productName?.ta?.toLowerCase() || "").includes(lower)
+            );
+        }
+
+        if (selectedCategory) {
+            result = result.filter(item => {
+                const cat = item.category?.en || item.category?.ta || "";
+                return cat.toLowerCase().includes(selectedCategory.toLowerCase());
+            });
+        }
+
+        setFilteredData(result);
+    }, [productFilter, selectedCategory, data]);
 
     const fetchLocations = async () => {
         try {
@@ -57,7 +87,18 @@ export default function LowStockReport() {
             if (selectedGodown) params.append("godownId", selectedGodown);
 
             const res = await customFetch.get(`/inventory/reports/low-stock-report?${params.toString()}`);
-            setData(res.data?.data || []);
+            const fetchedData = res.data?.data || [];
+            setData(fetchedData);
+
+            const uniqueCats = [
+                ...new Map(
+                    fetchedData
+                        .map((item) => item.category)
+                        .filter(Boolean)
+                        .map((cat) => [cat.en, cat])
+                ).values(),
+            ];
+            setCategories(uniqueCats);
         } catch (err) {
             console.error(err);
             toast.error("Failed to load low stock report");
@@ -77,10 +118,10 @@ export default function LowStockReport() {
         doc.setFontSize(10);
         doc.text(`Location: ${locationText}`, 14, 22);
 
-        const tableColumn = ["Product Code", "Product Name", "Min Stock", "Current Stock"];
+        const tableColumn = ["Product Code", "Product Name", "Category", "Min Stock", "Current Stock"];
         const tableRows = [];
 
-        data.forEach(item => {
+        filteredData.forEach(item => {
             let currentStockText = item.purchaseType === "SKU"
                 ? `${item.totalPacks || 0} Packs`
                 : `${(item.totalWeight || 0) / (item.baseUnitType === "G" || item.baseUnitType === "ML" ? 1000 : 1)} ${item.baseUnitType || ""}`;
@@ -88,6 +129,7 @@ export default function LowStockReport() {
             const row = [
                 item.productCode,
                 item.productName?.en || "Unknown",
+                item.category?.en || "-",
                 item.minStockLevel || 0,
                 currentStockText
             ];
@@ -103,6 +145,32 @@ export default function LowStockReport() {
         doc.save(`Low_Stock_Report_${new Date().toLocaleDateString()}.pdf`);
     };
 
+    const downloadExcel = () => {
+        if (!filteredData.length) {
+            toast.warning("No data to export");
+            return;
+        }
+
+        const excelData = filteredData.map(item => {
+            let currentStockText = item.purchaseType === "SKU"
+                ? `${item.totalPacks || 0} Packs`
+                : `${(item.totalWeight || 0) / (item.baseUnitType === "G" || item.baseUnitType === "ML" ? 1000 : 1)} ${item.baseUnitType || ""}`;
+
+            return {
+                "Product Code": item.productCode,
+                "Product Name": item.productName?.en || "Unknown",
+                "Category": item.category?.en || "-",
+                "Min Stock": item.minStockLevel || 0,
+                "Current Stock": currentStockText
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Low Stock Report");
+        XLSX.writeFile(workbook, `Low_Stock_Report_${new Date().toLocaleDateString()}.xlsx`);
+    };
+
     return (
         <Box p={3}>
             <Typography variant="h5" mb={3} fontWeight={600} color="primary">
@@ -111,7 +179,31 @@ export default function LowStockReport() {
 
             <Paper sx={{ p: 2, mb: 3 }}>
                 <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={4}>
+                    <Grid item xs={12} sm={3}>
+                        <TextField
+                            fullWidth
+                            label="Search Product"
+                            value={productFilter}
+                            onChange={(e) => setProductFilter(e.target.value)}
+                            size="small"
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
+                        <TextField
+                            select
+                            fullWidth
+                            label="Category"
+                            value={selectedCategory}
+                            onChange={(e) => setSelectedCategory(e.target.value)}
+                            size="small"
+                        >
+                            <MenuItem value="">-- All Categories --</MenuItem>
+                            {categories.map((cat, i) => (
+                                <MenuItem key={i} value={cat.en}>{cat.en || cat.ta}</MenuItem>
+                            ))}
+                        </TextField>
+                    </Grid>
+                    <Grid item xs={12} sm={3}>
                         <TextField
                             select
                             fullWidth
@@ -129,7 +221,7 @@ export default function LowStockReport() {
                             ))}
                         </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={4}>
+                    <Grid item xs={12} sm={3}>
                         <TextField
                             select
                             fullWidth
@@ -147,11 +239,14 @@ export default function LowStockReport() {
                             ))}
                         </TextField>
                     </Grid>
-                    <Grid item xs={12} sm={4} display="flex" gap={2}>
+                    <Grid item xs={12} display="flex" gap={2} mt={1}>
                         <Button variant="contained" onClick={fetchReport} startIcon={<Refresh />}>
                             Refresh
                         </Button>
-                        <Button variant="outlined" color="secondary" onClick={downloadPDF} startIcon={<Download />} disabled={data.length === 0}>
+                        <Button variant="outlined" color="success" onClick={downloadExcel} disabled={filteredData.length === 0}>
+                            Export Excel
+                        </Button>
+                        <Button variant="outlined" color="secondary" onClick={downloadPDF} startIcon={<Download />} disabled={filteredData.length === 0}>
                             Export PDF
                         </Button>
                     </Grid>
@@ -167,23 +262,25 @@ export default function LowStockReport() {
                             <TableRow sx={{ bgcolor: "#424242" }}>
                                 <TableCell sx={{ color: "white" }}>Code</TableCell>
                                 <TableCell sx={{ color: "white" }}>Name</TableCell>
+                                <TableCell sx={{ color: "white" }}>Category</TableCell>
                                 <TableCell sx={{ color: "white" }}>Purchase Mode</TableCell>
                                 <TableCell sx={{ color: "white" }}>Min Level</TableCell>
                                 <TableCell sx={{ color: "white" }}>Current Stock</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {data.length === 0 ? (
+                            {filteredData.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center">No Low Stock Items Found</TableCell>
+                                    <TableCell colSpan={6} align="center">No Low Stock Items Found</TableCell>
                                 </TableRow>
                             ) : (
-                                data.map((row) => (
+                                filteredData.map((row) => (
                                     <TableRow key={row.productId}>
                                         <TableCell>{row.productCode}</TableCell>
                                         <TableCell>{row.productName?.en}</TableCell>
+                                        <TableCell>{row.category?.en || "-"}</TableCell>
                                         <TableCell>{row.purchaseType}</TableCell>
-                                        <TableCell>{row.minStockLevel}</TableCell>
+                                        <TableCell>{row.minStockLevel || 0}</TableCell>
                                         <TableCell sx={{ color: "red", fontWeight: 600 }}>
                                             {row.purchaseType === "SKU"
                                                 ? `${row.totalPacks || 0} Packs`
