@@ -130,6 +130,26 @@ export const useProducts = () => {
     }
   };
 
+  const toggleProductInventory = async (id, currentState) => {
+    const newState = !currentState;
+
+    setProducts((prev) =>
+      prev.map((p) => (p._id === id ? { ...p, maintainInventory: newState } : p))
+    );
+
+    try {
+      await customFetch.patch(`/product/${id}/maintain-inventory`, {
+        maintainInventory: newState,
+      });
+
+      toast.success(newState ? "Inventory Tracking Enabled" : "Inventory Tracking Disabled");
+      fetchProducts();
+    } catch {
+      toast.error("Failed to update inventory tracking");
+      fetchProducts();
+    }
+  };
+
   const deleteProduct = async (id) => {
     try {
       await customFetch.delete(`/product/${id}`);
@@ -152,6 +172,7 @@ export const useProducts = () => {
     fetchProducts,
     setPage,
     toggleProductDelivery,
+    toggleProductInventory,
     deleteProduct,
     editProduct,
     setEditProduct,

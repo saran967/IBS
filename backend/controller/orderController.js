@@ -293,6 +293,14 @@ export const confirmOrder = async (req, res) => {
 
       item.price = Number(item.price) || 0;
 
+      const product = await Product.findById(item.productId).lean();
+      if (!product) continue;
+
+      if (product.maintainInventory === false) {
+        item.status = "Fulfilled";
+        continue;
+      }
+
       const inv = await Inventory.findOne({
         financialYearId: activeFY._id,
         productId: item.productId,
@@ -363,6 +371,9 @@ export const cancelOrder = async (req, res) => {
       }
 
       if (item.status === "Fulfilled") {
+        const product = await Product.findById(item.productId).lean();
+        if (product && product.maintainInventory === false) continue;
+
         await Inventory.findOneAndUpdate(
           {
             financialYearId: activeFY._id,
@@ -571,6 +582,13 @@ export const attemptFulfillPending = async (req, res) => {
         let totalQuantity = item.quantity ?? 0;
         if (item.companyItems?.length) {
           totalQuantity = item.companyItems.reduce((sum, c) => sum + c.quantity, 0);
+        }
+
+        const product = await Product.findById(productId).lean();
+        if (product && product.maintainInventory === false) {
+          item.status = "Fulfilled";
+          changed = true;
+          continue;
         }
 
         const inv = await Inventory.findOne({

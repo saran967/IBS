@@ -115,39 +115,26 @@ purchaseSchema.pre("save", async function () {
     }
   }
 
-  // Generate ST/IST format batch number
+  // Generate IST format batch number
   if (!this.batchNo) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(today.getDate() + 1);
-
-    // Find last purchase today
+    // Find the global last purchase with an IST batch number
     const lastPurchase = await mongoose.model("Purchase").findOne({
-      createdAt: { $gte: today, $lt: tomorrow },
-      batchNo: { $exists: true, $ne: null }
-    }).sort({ createdAt: -1 });
+      batchNo: { $regex: /^IST/ }
+    }).sort({ _id: -1 });
 
     let nextSeq = 1;
 
     if (lastPurchase && lastPurchase.batchNo) {
-      const parts = lastPurchase.batchNo.split('-');
-      if (parts.length === 3) {
-        const lastSeq = parseInt(parts[2], 10);
+      const match = lastPurchase.batchNo.match(/^IST(\d+)$/);
+      if (match) {
+        const lastSeq = parseInt(match[1], 10);
         if (!isNaN(lastSeq)) {
           nextSeq = lastSeq + 1;
         }
       }
     }
 
-    // Format: ST-YYYYMMDD-0001
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-
-    const prefix = "ST";
-    this.batchNo = `${prefix}-${yyyy}${mm}${dd}-${String(nextSeq).padStart(4, '0')}`;
+    this.batchNo = `IST${String(nextSeq).padStart(6, '0')}`;
   }
 });
 

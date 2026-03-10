@@ -18,6 +18,7 @@ import {
   searchProducts,
   searchProductsByCategory,
   toggleDeliveryStatus,
+  toggleInventoryStatus,
   updateProduct,
 } from "../controller/productController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
@@ -58,8 +59,9 @@ router.patch("/category/enable-delivery", enableTheCategory);
 router.get("/price-history/all", getAllProductPriceHistory);
 router.get("/:id/price-history", getProductPriceHistory);
 
-// Toggle delivery
+// Toggle delivery & inventory
 router.patch("/:id/enable-delivery", toggleDeliveryStatus);
+router.patch("/:id/maintain-inventory", toggleInventoryStatus);
 router.get("/searchByCategory", searchProductsByCategory);
 
 // Get single product

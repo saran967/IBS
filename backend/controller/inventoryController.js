@@ -313,8 +313,13 @@ export const syncInventoryFromPurchase = async (purchaseDoc, userId) => {
     }
 
     const product = await Product.findById(purchaseDoc.productId).select(
-      "baseUnitType purchaseMode unit category name productCode",
+      "baseUnitType purchaseMode unit category name productCode maintainInventory",
     );
+
+    if (product && product.maintainInventory === false) {
+      console.log(`Skipping inventory sync for product ${purchaseDoc.productId} (maintainInventory=false)`);
+      return;
+    }
 
     const purchaseMode =
       purchaseDoc.purchaseMode || purchaseDoc.purchaseType || "SKU";
@@ -601,6 +606,7 @@ export const getLowStockReport = async (req, res) => {
           productId: "$_id",
           productName: "$productDoc.name",
           productCode: "$productDoc.productCode",
+          category: "$productDoc.category",
           minStockLevel: "$productDoc.minStockLevel",
           baseUnitType: 1,
           purchaseType: 1,

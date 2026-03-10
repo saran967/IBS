@@ -156,7 +156,33 @@ export default function SalesItemsTable({
       setTimeout(() => refs.current[`qty_${index}`]?.focus(), 0);
       return false;
     }
+
+    if (row.productId && row.maintainInventory !== false) {
+      let maxQty;
+      const baseUnit = String(row.productBaseUnit || "").toLowerCase();
+      if (["kg", "l", "ltr"].includes(baseUnit)) {
+        maxQty = row.availableWeight;
+      } else {
+        maxQty = row.availablePacks;
+      }
+
+      const effectiveQty = getEffectiveQtyLocal(row);
+
+      if (maxQty !== null && effectiveQty > maxQty) {
+        toast.error(`Only ${maxQty} available (Needed: ${effectiveQty})`);
+        return false;
+      }
+    }
     return true;
+  };
+
+  const getEffectiveQtyLocal = (row) => {
+    const qty = Number(row.quantity || 0);
+    if (row.isLoose) {
+      if (row.looseUnit === "g" || row.looseUnit === "ml") return qty / 1000;
+      return qty;
+    }
+    return qty;
   };
 
   return (
@@ -251,12 +277,14 @@ export default function SalesItemsTable({
 
 
               const noStock =
-                item.isLoose || isBaseOnly
+                item.maintainInventory !== false &&
+                (item.isLoose || isBaseOnly
                   ? item.availableWeight === 0
-                  : item.availablePacks === 0;
+                  : item.availablePacks === 0);
 
               const loadingStock =
-                item.availableWeight === null || item.availablePacks === null;
+                item.maintainInventory !== false &&
+                (item.availableWeight === null || item.availablePacks === null);
               return (
                 <TableRow
                   key={key}
@@ -316,8 +344,9 @@ export default function SalesItemsTable({
                             return copy;
                           });
 
-                          // Fetch stock if product exists
+                          // Fetch stock if product exists and maintains inventory
                           if (!item.productId) return;
+                          if (item.maintainInventory === false) return;
 
                           try {
                             const res = await customFetch.get(
@@ -363,7 +392,7 @@ export default function SalesItemsTable({
                       >
                         <MenuItem value="">Select</MenuItem>
                         {combinedLocations.map((loc) => (
-                          <MenuItem key={loc._id} value={loc._id}>
+                          <MenuItem key={loc._id} value={loc._id} disabled={item.maintainInventory === false}>
                             {getText(
                               loc.name || loc.shopName || loc.godownName,
                             )}{" "}
@@ -494,7 +523,7 @@ export default function SalesItemsTable({
                     <FormControl fullWidth size="small">
                       <Select
                         value={item.inventoryId || ""}
-                        disabled={isSaved || !item.productId}
+                        disabled={isSaved || !item.productId || item.maintainInventory === false}
                         displayEmpty
                         sx={classicInputSx}
                         onChange={(e) => {
@@ -627,7 +656,7 @@ export default function SalesItemsTable({
                         disabled={isSaved}
                         inputRef={(el) => (refs.current[`qty_${index}`] = el)}
                         helperText={
-                          item.productId
+                          item.productId && item.maintainInventory !== false
                             ? (() => {
                               const type = String(
                                 item.baseUnitType || "",
@@ -652,7 +681,7 @@ export default function SalesItemsTable({
 
                               return "";
                             })()
-                            : ""
+                            : item.productId && item.maintainInventory === false ? "No stock tracking" : ""
                         }
                         onKeyDown={(e) => {
                           if (e.key !== "Enter") return;

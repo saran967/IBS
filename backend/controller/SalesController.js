@@ -125,6 +125,11 @@ export const createSale = async (req, res) => {
        STEP 2: Stock validation
     ---------------------------- */
     for (const item of items) {
+      const product = await Product.findById(item.productId).lean();
+      if (!product) throw new Error("Product not found");
+
+      if (product.maintainInventory === false) continue;
+
       const shopId = cleanObjectId(item.shopId) || req.user?.shopId;
       const godownId = cleanObjectId(item.godownId);
 
@@ -160,9 +165,6 @@ export const createSale = async (req, res) => {
       const targetInv = inv || mockInv;
 
       if (!targetInv) throw new Error("Inventory not found");
-
-      const product = await Product.findById(item.productId).lean();
-      if (!product) throw new Error("Product not found");
 
       const requiredBaseQty = await calculateBaseQty(item, product);
       console.log("──────── STOCK CHECK ────────");
@@ -418,6 +420,9 @@ export const createSale = async (req, res) => {
     ---------------------------- */
     for (const it of processedItems) {
       const product = await Product.findById(it.productId).lean();
+
+      if (product.maintainInventory === false) continue;
+
       const deductBaseQty = await calculateBaseQty(
         { skuId: it.skuId, isLoose: it.isLoose, quantity: it.quantity },
         product,

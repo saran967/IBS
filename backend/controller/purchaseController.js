@@ -148,25 +148,27 @@ export const createPurchase = async (req, res) => {
     }
 
     /* ---------------- SPLIT VALIDATION ---------------- */
-    if (purchaseMode === "SKU") {
-      const splitPacks =
-        shopSplits.reduce((a, s) => a + s.packs, 0) +
-        godownSplits.reduce((a, g) => a + g.packs, 0);
+    if (product.maintainInventory !== false) {
+      if (purchaseMode === "SKU") {
+        const splitPacks =
+          shopSplits.reduce((a, s) => a + s.packs, 0) +
+          godownSplits.reduce((a, g) => a + g.packs, 0);
 
-      if (splitPacks !== Number(totalPacks)) {
-        return res.status(400).json({
-          message: `Split packs mismatch. Total: ${totalPacks}, Split: ${splitPacks}`,
-        });
-      }
-    } else {
-      const splitBaseQty =
-        shopSplits.reduce((a, s) => a + s.baseQty, 0) +
-        godownSplits.reduce((a, g) => a + g.baseQty, 0);
+        if (splitPacks !== Number(totalPacks)) {
+          return res.status(400).json({
+            message: `Split packs mismatch. Total: ${totalPacks}, Split: ${splitPacks}`,
+          });
+        }
+      } else {
+        const splitBaseQty =
+          shopSplits.reduce((a, s) => a + s.baseQty, 0) +
+          godownSplits.reduce((a, g) => a + g.baseQty, 0);
 
-      if (splitBaseQty !== totalBaseQty) {
-        return res.status(400).json({
-          message: `Split quantity mismatch. Total: ${totalBaseQty}, Split: ${splitBaseQty}`,
-        });
+        if (splitBaseQty !== totalBaseQty) {
+          return res.status(400).json({
+            message: `Split quantity mismatch. Total: ${totalBaseQty}, Split: ${splitBaseQty}`,
+          });
+        }
       }
     }
 
@@ -237,11 +239,13 @@ export const createPurchase = async (req, res) => {
     };
 
 
-    for (const s of shopSplits) await updateInventory(s);
-    for (const g of godownSplits) await updateInventory(g);
+    if (product.maintainInventory !== false) {
+      for (const s of shopSplits) await updateInventory(s);
+      for (const g of godownSplits) await updateInventory(g);
 
-    /* ---------------- PRODUCT UPDATE ---------------- */
-    product.totalStock = Number(product.totalStock || 0) + Number(totalBaseQty);
+      /* ---------------- PRODUCT UPDATE ---------------- */
+      product.totalStock = Number(product.totalStock || 0) + Number(totalBaseQty);
+    }
 
     // ONLY LOOSE updates purchase price
     if (purchaseMode === "LOOSE") {

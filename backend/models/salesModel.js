@@ -214,20 +214,21 @@ saleSchema.pre("save", async function () {
   let nextSeq = 1;
   if (lastSale && lastSale.invoiceNumber) {
     const parts = lastSale.invoiceNumber.split('-');
-    if (parts.length === 3) {
-      const lastSeq = parseInt(parts[2], 10);
+    if (parts.length >= 3) {
+      const lastSeq = parseInt(parts[parts.length - 1], 10);
       if (!isNaN(lastSeq)) {
         nextSeq = lastSeq + 1;
       }
     }
   }
 
-  // Format: INV-YYYYMMDD-0001
+  // Format: INV-YYYY-MM-DD-0001 (or BILL-YYYY-MM-DD-0001 for Non-GST)
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
   const dd = String(today.getDate()).padStart(2, '0');
 
-  this.invoiceNumber = `INV-${yyyy}${mm}${dd}-${String(nextSeq).padStart(4, '0')}`;
+  const prefix = this.billType === "WITHOUT_GST" ? "BILL" : "INV";
+  this.invoiceNumber = `${prefix}-${yyyy}-${mm}-${dd}-${String(nextSeq).padStart(4, '0')}`;
 });
 
 export default mongoose.model("Sale", saleSchema);

@@ -41,6 +41,7 @@ export default function ProductList() {
     fetchProducts,
     setPage,
     toggleProductDelivery,
+    toggleProductInventory,
     deleteProduct,
     editProduct,
     setEditProduct,
@@ -176,6 +177,7 @@ export default function ProductList() {
           lang={lang}
           products={filteredProducts}
           onToggleDelivery={toggleProductDelivery}
+          onToggleInventory={toggleProductInventory}
           onEdit={setEditProduct}
           onDelete={deleteProduct}
           onPriceHistory={(id) =>

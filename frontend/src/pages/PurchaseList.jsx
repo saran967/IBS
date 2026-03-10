@@ -313,7 +313,7 @@ export default function PurchaseList() {
           <div class="name">${getLocalizedText(p.productId?.name, "en")}</div>
           <div class="barcode" style="margin-top: 5px;"><img src="${svgDataUrl}" /></div>
           <div class="row">Batch No: ${p.batchNo || "N/A"}</div>
-          <div class="row">MRP: ₹${p.productId?.mrp || "N/A"}</div>
+          <div class="row">MRP: ${Array.isArray(p.productId?.mrp) && p.productId.mrp.length > 0 ? p.productId.mrp.map(m => '₹'+m).join(', ') : '₹'+(p.productId?.mrp || "N/A")}</div>
         </div>
       </body>
       </html>

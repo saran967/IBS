@@ -13,7 +13,7 @@ const productSchema = new mongoose.Schema(
     fssaiNumber: { type: Number },
     packedDate: { type: Date },
     useByDate: { type: Date },
-    mrp: { type: Number },
+    mrp: [{ type: Number }],
 
     productCode: { type: String, unique: true, required: true },
     weight: { type: Number, default: 0 },
@@ -56,6 +56,7 @@ const productSchema = new mongoose.Schema(
     // Auto or manual
     allowRetail: { type: Boolean, default: false },
     hsnCode: { type: String, default: "" },
+    maintainInventory: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

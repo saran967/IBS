@@ -598,7 +598,7 @@ export const bulkUploadProducts = async (req, res) => {
         fssaiNumber: r.fssaiNumber,
         packedDate: r.packedDate,
         useByDate: r.useByDate,
-        mrp: r.mrp,
+        mrp: r.mrp ? String(r.mrp).split(',').map(v => Number(v.trim())).filter(v => v > 0) : [],
       });
 
       p.shortCode = r.productCode;
@@ -678,6 +678,31 @@ export const toggleDeliveryStatus = async (req, res) => {
       success: true,
       message: "Delivery status updated successfully",
       enableDelivery: product.enableDelivery,
+    });
+  } catch (error) {
+    res.status(error.statusCode || 400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const toggleInventoryStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findById(id);
+    if (!product) {
+      throw new NotFoundError("Product not found");
+    }
+
+    product.maintainInventory = !product.maintainInventory;
+    await product.save();
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      message: "Inventory status updated successfully",
+      maintainInventory: product.maintainInventory,
     });
   } catch (error) {
     res.status(error.statusCode || 400).json({

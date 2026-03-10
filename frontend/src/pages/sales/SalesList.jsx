@@ -36,6 +36,7 @@ import customFetch from "../../utils/customFetch";
 import getLocalizedText from "../../utils/getLocalizedText";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 export default function SalesList() {
   const { lang } = useParams();
@@ -389,6 +390,52 @@ export default function SalesList() {
     doc.save("Sales_Report.pdf");
   };
 
+  const exportSalesExcel = async () => {
+    let rows = sales;
+
+    let totals = summary;
+    try {
+      const exportData = await fetchAllFilteredSales();
+      rows = exportData.rows;
+      totals = exportData.totals;
+    } catch {
+      toast.error("Failed to prepare export");
+      return;
+    }
+
+    if (!rows || rows.length === 0) {
+      toast.warning("No sales available to export");
+      return;
+    }
+
+    const excelData = rows.map((s) => ({
+      Invoice: s.invoiceNumber,
+      Date: new Date(s.saleDate).toLocaleDateString("en-IN"),
+      Shop: getLocalizedText(s.items?.[0]?.godownId?.name || s.items?.[0]?.shopId?.name || "--", "en"),
+      Customer: getLocalizedText(s.customerId?.customerName, "en") || "Walk-in",
+      "Sale Type": s.saleType,
+      "Bill Type": s.billType,
+      Payment: s.paymentSplits?.length ? s.paymentSplits.map((p) => `${p.mode} ${Number(p.amount).toFixed(0)}`).join(", ") : "-",
+      "Net Total (Rs)": s.netTotal ? s.netTotal.toFixed(2) : "0.00",
+    }));
+
+    excelData.push({
+      Invoice: "TOTALS",
+      Date: "",
+      Shop: "",
+      Customer: "",
+      "Sale Type": "",
+      "Bill Type": `Grand Total: Rs ${totals.totalGrand ? totals.totalGrand.toFixed(2) : 0}`,
+      Payment: `Paid: Rs ${totals.totalPaid ? totals.totalPaid.toFixed(2) : 0}`,
+      "Net Total (Rs)": `Balance: Rs ${totals.totalBalance ? totals.totalBalance.toFixed(2) : 0}`
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Report");
+    XLSX.writeFile(workbook, "Sales_Report.xlsx");
+  };
+
   // ======================================================
   // Filters Change
   // ======================================================
@@ -486,6 +533,9 @@ export default function SalesList() {
           </Button>
           <Button variant="contained" color="secondary" onClick={exportSalesPDF}>
             Export PDF
+          </Button>
+          <Button variant="contained" color="success" onClick={exportSalesExcel}>
+            Export Excel
           </Button>
         </Paper>
 

@@ -290,34 +290,36 @@ export default function PurchaseForm({ onSuccess }) {
     });
 
     //  Split validation
-    if (purchaseType === "SKU") {
-      const totalEntered = Number(formData.totalPacks) || 0;
-      if (sumSplits !== totalEntered) {
-        return toast.error(
-          `Total Packs (${totalEntered}) must equal split packs (${sumSplits})`,
-        );
-      }
-    } else {
-      const baseType = product?.baseUnitType || "G";
-
-      //  total entered in BASE
-      const enteredBaseQty = toBaseQty(formData.baseQty, baseType);
-
-      //  sum split also convert each field to BASE
-      const splitBaseQty = splits.reduce((sum, s) => {
-        if (s.type === "shop" || s.type === "godown") {
-          return sum + Number(s.baseQty || 0);
+    if (product?.maintainInventory !== false) {
+      if (purchaseType === "SKU") {
+        const totalEntered = Number(formData.totalPacks) || 0;
+        if (sumSplits !== totalEntered) {
+          return toast.error(
+            `Total Packs (${totalEntered}) must equal split packs (${sumSplits})`,
+          );
         }
-        return sum;
-      }, 0);
+      } else {
+        const baseType = product?.baseUnitType || "G";
 
-      if (
-        Number(splitBaseQty.toFixed(2)) !== Number(enteredBaseQty.toFixed(2))
-      ) {
-        return toast.error(
-          `Base Qty mismatch: Entered ${toUiQty(enteredBaseQty, baseType)} ${baseType === "G" ? "KG" : baseType === "ML" ? "LTR" : "PCS"
-          } must equal split total ${toUiQty(splitBaseQty, baseType)}`,
-        );
+        //  total entered in BASE
+        const enteredBaseQty = toBaseQty(formData.baseQty, baseType);
+
+        //  sum split also convert each field to BASE
+        const splitBaseQty = splits.reduce((sum, s) => {
+          if (s.type === "shop" || s.type === "godown") {
+            return sum + Number(s.baseQty || 0);
+          }
+          return sum;
+        }, 0);
+
+        if (
+          Number(splitBaseQty.toFixed(2)) !== Number(enteredBaseQty.toFixed(2))
+        ) {
+          return toast.error(
+            `Base Qty mismatch: Entered ${toUiQty(enteredBaseQty, baseType)} ${baseType === "G" ? "KG" : baseType === "ML" ? "LTR" : "PCS"
+            } must equal split total ${toUiQty(splitBaseQty, baseType)}`,
+          );
+        }
       }
     }
 
@@ -726,73 +728,75 @@ export default function PurchaseForm({ onSuccess }) {
       </Box>
 
       {/* ---------------------- SHOP & GODOWN GRID UI ---------------------- */}
-      <Box sx={{ border: "1px solid #ddd", borderRadius: 2, p: 3 }}>
-        <Typography variant="subtitle2" mb={1}>
-          Split Quantity to Shops / Godowns
-        </Typography>
+      {product?.maintainInventory !== false && (
+        <Box sx={{ border: "1px solid #ddd", borderRadius: 2, p: 3 }}>
+          <Typography variant="subtitle2" mb={1}>
+            Split Quantity to Shops / Godowns
+          </Typography>
 
-        <Grid container spacing={2}>
-          {shops.map((shop, shopIndex) => (
-            <Grid item xs={12} sm={6} md={3} key={shop._id}>
-              <TextField
-                fullWidth
-                label={`${shop.name?.en || shop.name} (Shop) ${purchaseType === "SKU"
+          <Grid container spacing={2}>
+            {shops.map((shop, shopIndex) => (
+              <Grid item xs={12} sm={6} md={3} key={shop._id}>
+                <TextField
+                  fullWidth
+                  label={`${shop.name?.en || shop.name} (Shop) ${purchaseType === "SKU"
                     ? "Packs"
                     : `Qty (${getUiUnitLabel(product)})`
-                  }`}
-                name={`shop_${shopIndex}`}
-                value={formData[`shop_${shopIndex}`] || ""}
-                onChange={handleChange}
-                size="small"
-                inputRef={refs.current[`shop_${shopIndex}`]}
-              />
-            </Grid>
-          ))}
-        </Grid>
+                    }`}
+                  name={`shop_${shopIndex}`}
+                  value={formData[`shop_${shopIndex}`] || ""}
+                  onChange={handleChange}
+                  size="small"
+                  inputRef={refs.current[`shop_${shopIndex}`]}
+                />
+              </Grid>
+            ))}
+          </Grid>
 
-        {(() => {
-          const maxGodowns = Math.max(
-            ...shops.map((s) => godownsByShop[s._id]?.length || 0),
-          );
+          {(() => {
+            const maxGodowns = Math.max(
+              ...shops.map((s) => godownsByShop[s._id]?.length || 0),
+            );
 
-          return Array.from({ length: maxGodowns }).map((_, rowIndex) => (
-            <Grid container spacing={2} sx={{ mt: 1 }} key={rowIndex}>
-              {shops.map((shop) => {
-                const gList = godownsByShop[shop._id] || [];
-                const godown = gList[rowIndex];
+            return Array.from({ length: maxGodowns }).map((_, rowIndex) => (
+              <Grid container spacing={2} sx={{ mt: 1 }} key={rowIndex}>
+                {shops.map((shop) => {
+                  const gList = godownsByShop[shop._id] || [];
+                  const godown = gList[rowIndex];
 
-                if (!godown)
+                  if (!godown)
+                    return (
+                      <Grid
+                        item
+                        xs={6}
+                        sm={3}
+                        md={3}
+                        key={shop._id + "_" + rowIndex}
+                      />
+                    );
+
                   return (
-                    <Grid
-                      item
-                      xs={6}
-                      sm={3}
-                      md={3}
-                      key={shop._id + "_" + rowIndex}
-                    />
-                  );
-
-                return (
-                  <Grid item xs={12} sm={6} md={3} key={godown._id}>
-                    <TextField
-                      fullWidth
-                      label={`${godown.name?.en || godown.name} (Godown) ${purchaseType === "SKU"
+                    <Grid item xs={12} sm={6} md={3} key={godown._id}>
+                      <TextField
+                        fullWidth
+                        label={`${godown.name?.en || godown.name} (Godown) ${purchaseType === "SKU"
                           ? "Packs"
                           : `Qty (${getUiUnitLabel(product)})`
-                        }`}
-                      name={`gd_${shop._id}_${rowIndex}`}
-                      value={formData[`gd_${shop._id}_${rowIndex}`] || ""}
-                      onChange={handleChange}
-                      size="small"
-                      inputRef={refs.current[`gd_${shop._id}_${rowIndex}`]}
-                    />
-                  </Grid>
-                );
-              })}
-            </Grid>
-          ));
-        })()}
-      </Box>
+                          }`}
+                        name={`gd_${shop._id}_${rowIndex}`}
+                        value={formData[`gd_${shop._id}_${rowIndex}`] || ""}
+                        onChange={handleChange}
+                        size="small"
+                        inputRef={refs.current[`gd_${shop._id}_${rowIndex}`]}
+                      />
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            ));
+          })()}
+        </Box>
+      )}
 
       {/* ---------------------- ADD VENDOR POPUP ---------------------- */}
       <Dialog
