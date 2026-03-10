@@ -120,7 +120,8 @@ quotationSchema.pre("save", async function (next) {
     let nextSeq = 1;
     if (lastQuotation && lastQuotation.quotationNumber) {
         const parts = lastQuotation.quotationNumber.split('-');
-        if (parts.length >= 3) {
+        // Supports both legacy QT-YYYYMMDD-0001 and new QT-YYYY-MM-DD-0001
+        if (parts.length >= 2) {
             const lastSeq = parseInt(parts[parts.length - 1], 10);
             if (!isNaN(lastSeq)) {
                 nextSeq = lastSeq + 1;
@@ -132,7 +133,8 @@ quotationSchema.pre("save", async function (next) {
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
 
-    this.quotationNumber = `QT-${yyyy}-${mm}-${dd}-${String(nextSeq).padStart(4, '0')}`;
+    const datePart = `${yyyy}-${mm}-${dd}`;
+    this.quotationNumber = `QT-${datePart}-${String(nextSeq).padStart(4, '0')}`;
     next();
 });
 

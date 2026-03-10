@@ -50,6 +50,22 @@ export default function CreateQuotation() {
         return Number.isNaN(n) ? 0 : n;
     };
 
+    const getProductPriceByTier = (product, tier, fallback = 0) => {
+        if (!product) return numeric(fallback);
+        let price = product.sellingPrice ?? fallback;
+        if (tier === "W") price = product.sellingPriceforB2B ?? price;
+        if (tier === "SW") price = product.sellingPriceforAgent ?? price;
+        return numeric(price);
+    };
+
+    const getSkuPriceByTier = (sku, tier, fallback = 0) => {
+        if (!sku) return numeric(fallback);
+        let price = sku.retailPrice ?? fallback;
+        if (tier === "W") price = sku.wholesalePrice ?? price;
+        if (tier === "SW") price = sku.agentPrice ?? price;
+        return numeric(price);
+    };
+
     const createRow = () => ({
         rowKey: crypto.randomUUID(),
         productId: "",
@@ -104,21 +120,32 @@ export default function CreateQuotation() {
         }, 300);
     };
 
-    const recalcTotals = (rows, updatedDiscount = null) => {
+    const loadProductSkus = async (productId) => {
+        if (!productId) return [];
+        try {
+            const res = await customFetch.get(`/retail-skus/product/${productId}`);
+            return res.data?.data || [];
+        } catch {
+            return [];
+        }
+    };
+
+    const recalcTotals = (rows, updatedDiscount = null, billTypeOverride = billType) => {
         let grossTotal = 0;
         const disc = updatedDiscount !== null ? numeric(updatedDiscount) : numeric(totals.discount);
+        const activeBillType = billTypeOverride || billType;
 
         const updatedRows = rows.map((item) => {
             if (!item.productId) return item;
             const qty = numeric(item.quantity);
             const price = numeric(item.sellingPrice);
-            const cgst = billType === "WITHOUT_GST" ? 0 : numeric(item.cgstPercentage);
-            const sgst = billType === "WITHOUT_GST" ? 0 : numeric(item.sgstPercentage);
+            const cgst = activeBillType === "WITHOUT_GST" ? 0 : numeric(item.cgstPercentage);
+            const sgst = activeBillType === "WITHOUT_GST" ? 0 : numeric(item.sgstPercentage);
 
             const cgstAmt = (price * cgst) / 100;
             const sgstAmt = (price * sgst) / 100;
 
-            const rowTotal = billType === "WITHOUT_GST"
+            const rowTotal = activeBillType === "WITHOUT_GST"
                 ? price * qty
                 : (price + cgstAmt + sgstAmt) * qty;
 
@@ -134,7 +161,7 @@ export default function CreateQuotation() {
         });
     };
 
-    const handleProductSelect = (index, product) => {
+    const handleProductSelect = async (index, product) => {
         const updated = [...items];
         if (!product) {
             updated[index] = createRow();
@@ -142,10 +169,10 @@ export default function CreateQuotation() {
             recalcTotals(updated);
             return;
         }
-
-        let initialPrice = product.sellingPrice ?? 0;
-        if (priceTier === "W") initialPrice = product.sellingPriceforB2B ?? initialPrice;
-        if (priceTier === "SW") initialPrice = product.sellingPriceforAgent ?? initialPrice;
+        const skuList = Array.isArray(product.skus) && product.skus.length
+            ? product.skus
+            : await loadProductSkus(product._id);
+        const initialPrice = getProductPriceByTier(product, priceTier, 0);
 
         updated[index] = {
             ...updated[index],
@@ -156,9 +183,9 @@ export default function CreateQuotation() {
             cgstPercentage: product.cgstPercentage || 0,
             sgstPercentage: product.sgstPercentage || 0,
             productBaseUnit: product.unit,
-            skuList: product.skus || [],
+            skuList,
             hsnCode: product.hsnCode || "",
-            productDoc: product,
+            productDoc: { ...product, skus: skuList },
             unit: "__BASE__",
             skuId: "",
             isLoose: false,
@@ -171,15 +198,23 @@ export default function CreateQuotation() {
         updated[index][field] = value;
 
         if (field === "unit") {
+            const row = updated[index];
+            const basePrice = getProductPriceByTier(row.productDoc, priceTier, row.sellingPrice);
             if (value === "LOOSE") {
-                updated[index].isLoose = true;
-                updated[index].skuId = "";
+                row.isLoose = true;
+                row.skuId = "";
+                row.sellingPrice = basePrice;
             } else if (value === "__BASE__") {
-                updated[index].isLoose = false;
-                updated[index].skuId = "";
+                row.isLoose = false;
+                row.skuId = "";
+                row.sellingPrice = basePrice;
             } else {
-                updated[index].isLoose = false;
-                updated[index].skuId = value;
+                row.isLoose = false;
+                row.skuId = value;
+                const selectedSku = (row.skuList || []).find(
+                    (sku) => String(sku._id) === String(value),
+                );
+                row.sellingPrice = getSkuPriceByTier(selectedSku, priceTier, basePrice);
             }
         }
 
@@ -343,7 +378,7 @@ export default function CreateQuotation() {
                                 onChange={(_, val) => {
                                     if (val) {
                                         setBillType(val);
-                                        setTimeout(() => recalcTotals(items), 0);
+                                        recalcTotals(items, null, val);
                                     }
                                 }}
                                 fullWidth
