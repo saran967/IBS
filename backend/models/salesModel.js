@@ -66,6 +66,14 @@ const saleItemSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  isOutOfStock: {
+    type: Boolean,
+    default: false,
+  },
+  isFree: {
+    type: Boolean,
+    default: false,
+  },
 });
 //Handling Charges
 const handlingChargeSchema = new mongoose.Schema({

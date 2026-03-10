@@ -80,6 +80,7 @@ export default function SalesBill() {
   // PRINT CONDITION (ANY TRUE → PRINT ITEM)
   // ---------------------------------------------
   const canPrint = (item) => {
+    if (item.isOutOfStock) return false;
     const p = item.productId;
     if (!p) return false;
     return p.enableDelivery === true || p.categoryDeliveryEnabled === true;

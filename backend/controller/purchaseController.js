@@ -26,6 +26,8 @@ export const createPurchase = async (req, res) => {
 
       splits = [],
       transport = {},
+      isFree = false,
+      assignToProduct = null,
     } = req.body;
 
     /* ---------------- BASIC VALIDATION ---------------- */
@@ -196,6 +198,8 @@ export const createPurchase = async (req, res) => {
       shopSplits,
       godownSplits,
       transport,
+      isFree,
+      assignToProduct,
       createdBy: req.user?.userId,
       dueDate
     });
@@ -207,6 +211,7 @@ export const createPurchase = async (req, res) => {
         productId: product._id,
         shopId: loc.shop || null,
         godownId: loc.godown || null,
+        isFree: isFree,
       };
 
       let inv = await Inventory.findOne(query);
@@ -221,6 +226,7 @@ export const createPurchase = async (req, res) => {
           vendorId,
           baseUnitType,
           purchaseType: purchaseMode,
+          isFree: isFree,
         });
       }
 
@@ -245,6 +251,13 @@ export const createPurchase = async (req, res) => {
 
       /* ---------------- PRODUCT UPDATE ---------------- */
       product.totalStock = Number(product.totalStock || 0) + Number(totalBaseQty);
+
+      /* ---------------- FREE ITEM ASSIGNMENT ---------------- */
+      if (isFree && assignToProduct) {
+        await Product.findByIdAndUpdate(assignToProduct, {
+          $addToSet: { freeItems: { productId: product._id, quantity: 1 } },
+        });
+      }
     }
 
     // ONLY LOOSE updates purchase price

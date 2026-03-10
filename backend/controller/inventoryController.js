@@ -20,12 +20,19 @@ export const getAllInventory = async (req, res) => {
       });
     }
 
-    const { page = 1, limit = 10, shopId, vendorId, productId } = req.query;
+    const { page = 1, limit = 10, shopId, vendorId, productId, isFree } = req.query;
 
     // 🔥 ALWAYS FILTER BY FINANCIAL YEAR
     const query = {
       financialYearId: activeFY._id,
     };
+
+    if (isFree === "true") {
+      query.isFree = true;
+    } else if (isFree === "false") {
+      query.$or = [{ isFree: false }, { isFree: { $exists: false } }];
+    }
+    // If "ALL" or undefined, we don't add isFree to the query, so it returns everything.
 
     if (shopId && mongoose.Types.ObjectId.isValid(shopId))
       query.shopId = new mongoose.Types.ObjectId(shopId);
@@ -650,6 +657,85 @@ export const getLowStockReport = async (req, res) => {
     console.error("Low Stock Report Error:", error);
     res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
       success: true,
+      message: error.message,
+    });
+  }
+};
+
+export const addFreeStock = async (req, res) => {
+  try {
+    const activeFY = await getActiveFinancialYear();
+    if (!activeFY) throw new BadRequestError("No active financial year found");
+
+    const {
+      productId,
+      quantity,
+      type,
+      locationId,
+      locationType,
+      linkedProductId,
+    } = req.body;
+
+    if (!productId || !quantity || !locationId || !locationType) {
+      throw new BadRequestError("Missing required fields");
+    }
+
+    const product = await Product.findById(productId);
+    if (!product) throw new NotFoundError("Product not found");
+
+    const qtyNum = Number(quantity);
+    let addedBaseQty = qtyNum;
+    if (product.baseUnitType === "G" || product.baseUnitType === "ML") {
+       addedBaseQty = qtyNum * 1000; // UI enters KG/LTR
+    }
+
+    const query = {
+      financialYearId: activeFY._id,
+      productId: productId,
+      isFree: true,
+      [locationType === "shop" ? "shopId" : "godownId"]: locationId,
+    };
+
+    let inv = await Inventory.findOne(query);
+    if (!inv) {
+      inv = new Inventory({
+        ...query,
+        productCode: product.productCode,
+        baseUnitType: product.baseUnitType,
+        purchaseType: "LOOSE", // Keep free items as LOOSE for simple deduction
+      });
+    }
+
+    inv.totalWeight = (inv.totalWeight || 0) + addedBaseQty;
+    inv.remainingWeight = (inv.remainingWeight || 0) + addedBaseQty;
+    
+    if (product.baseUnitType === "PCS") {
+        inv.totalPacks = (inv.totalPacks || 0) + qtyNum;
+        inv.remainingPacks = (inv.remainingPacks || 0) + qtyNum;
+    }
+
+    await inv.save();
+
+    // Link to Main Product if provided
+    if (linkedProductId && mongoose.Types.ObjectId.isValid(linkedProductId)) {
+      await Product.findByIdAndUpdate(linkedProductId, {
+        $addToSet: { freeItems: { productId: product._id, quantity: 1 } },
+      });
+    }
+
+    // Update product global stock counter (always in base weight)
+    product.totalStock = (product.totalStock || 0) + addedBaseQty;
+    await product.save();
+
+    res.status(StatusCodes.OK).json({ 
+      success: true, 
+      message: "Free stock added successfully" 
+    });
+
+  } catch (error) {
+    console.error("Add Free Stock Error:", error);
+    res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
       message: error.message,
     });
   }

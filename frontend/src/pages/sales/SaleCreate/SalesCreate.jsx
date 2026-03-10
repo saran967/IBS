@@ -878,8 +878,7 @@ export default function SaleCreate({ tabId, tabData, updateTabData }) {
           maxQty = row.availablePacks;
         }
         if (maxQty !== null && Number(value) > maxQty) {
-          toast.error(`Only ${maxQty} available`);
-          return;
+          toast.warning(`Only ${maxQty} left`);
         }
       }
     }

@@ -50,6 +50,7 @@ export default function InventoryList() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [productFilter, setProductFilter] = useState("");
   const [stockStatusFilter, setStockStatusFilter] = useState("ALL");
+  const [itemTypeFilter, setItemTypeFilter] = useState("ALL"); // ALL / PAID / FREE
 
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -333,6 +334,13 @@ export default function InventoryList() {
       filtered = filtered.filter((inv) => isNegativeStock(inv));
     }
 
+    // Filter by Item Type (Paid / Free)
+    if (itemTypeFilter === "PAID") {
+      filtered = filtered.filter((inv) => !inv.isFree);
+    } else if (itemTypeFilter === "FREE") {
+      filtered = filtered.filter((inv) => inv.isFree);
+    }
+
     setFilteredInventory(sortByNewest(filtered));
     setTotalPages(Math.ceil(filtered.length / limit));
     setPage(1);
@@ -342,6 +350,7 @@ export default function InventoryList() {
     selectedGodown,
     selectedCategory,
     stockStatusFilter,
+    itemTypeFilter,
     inventory,
     currentUser,
     godownsList,
@@ -410,6 +419,7 @@ export default function InventoryList() {
       "Product Name": getText(inv.productId?.name),
       Category: getText(inv.productId?.category),
       Unit: getText(inv.productId?.unit),
+      Type: inv.isFree ? "FREE" : "PAID",
       Location: inv.shopId
         ? `${getLocationName(inv)} (Shop)`
         : `${getLocationName(inv)} (Godown)`,
@@ -452,6 +462,7 @@ export default function InventoryList() {
           "Product Name",
           "Category",
           "Unit",
+          "Type",
           "Location",
           "Stock Summary",
           "Date",
@@ -463,6 +474,7 @@ export default function InventoryList() {
         r["Product Name"],
         r.Category,
         r.Unit,
+        r.Type,
         r.Location,
         r["Stock Summary"],
         r.Date,
@@ -656,6 +668,18 @@ export default function InventoryList() {
           </Select>
         </FormControl>
 
+        <FormControl size="small" sx={{ minWidth: 150 }}>
+          <InputLabel>Item Type</InputLabel>
+          <Select
+            value={itemTypeFilter}
+            onChange={(e) => setItemTypeFilter(e.target.value)}
+          >
+            <MenuItem value="ALL">Total Stock</MenuItem>
+            <MenuItem value="PAID">Paid Only</MenuItem>
+            <MenuItem value="FREE">Free Only</MenuItem>
+          </Select>
+        </FormControl>
+
         <Button
           startIcon={<Refresh />}
           variant="outlined"
@@ -694,6 +718,7 @@ export default function InventoryList() {
                         // "Batch No",
                         "Category",
                         "Unit",
+                        "Type",
                         "Location",
                         "Stock Summary",
                         "Date",
@@ -727,6 +752,14 @@ export default function InventoryList() {
                           </TableCell>
 
                           <TableCell>{getText(inv.productId?.unit)}</TableCell>
+
+                          <TableCell>
+                            {inv.isFree ? (
+                              <Chip label="FREE" color="success" size="small" variant="filled" />
+                            ) : (
+                              <Chip label="PAID" color="primary" size="small" variant="outlined" />
+                            )}
+                          </TableCell>
 
                           {/* <TableCell>{getText(inv.vendorId?.name)}</TableCell> */}
                           <TableCell>

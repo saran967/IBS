@@ -1,0 +1,1 @@
+const mongoose = require('mongoose'); mongoose.connect('mongodb://127.0.0.1:27017/ismath-b2b').then(async () => { const count = await mongoose.connection.collection('inventories').countDocuments({ remainingWeight: { \$lt: 0 } }); console.log(count); process.exit(0); });

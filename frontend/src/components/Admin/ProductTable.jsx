@@ -604,7 +604,14 @@ const ProductTable = ({
                       />
                     </TableCell>
 
-                    <TableCell sx={cellSx}>{getField(p.name)}</TableCell>
+                    <TableCell sx={cellSx}>
+                      {getField(p.name)}
+                      {p.freeItems?.length > 0 && (
+                        <Tooltip title="Has Free Items">
+                          <span style={{ marginLeft: 8, cursor: "help" }}>🎁</span>
+                        </Tooltip>
+                      )}
+                    </TableCell>
                     <TableCell sx={cellSx}>{getField(p.category)}</TableCell>
                     <TableCell>{getField(p.unit)}</TableCell>
                     <TableCell>

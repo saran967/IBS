@@ -140,44 +140,43 @@ export const createSale = async (req, res) => {
       const invQuery = {
         financialYearId: activeFY._id,
         productId: item.productId,
-        ...(godownId ? { godownId } : { shopId }),
+        $and: [
+          { $or: [{ isFree: false }, { isFree: { $exists: false } }] }
+        ]
       };
 
+      if (shopId) invQuery.$and.push({ shopId: shopId });
+      
+      if (godownId) {
+        invQuery.$and.push({ godownId: godownId });
+      } else {
+        invQuery.$and.push({ $or: [{ godownId: null }, { godownId: { $exists: false } }] });
+      }
+
+      let totalRemaining = 0;
       if (item.inventoryId) {
+        // Specific batch mode
+        invQuery._id = item.inventoryId;
         delete invQuery.godownId;
         delete invQuery.shopId;
-        invQuery._id = item.inventoryId;
-      }
-
-      const inv = await inventoryModel.findOne(invQuery);
-
-      // Fallback: If no single row found but we have total stock across batches?
-      // Actually, if they didn't select a batch, we should sum all batches in that location.
-      if (!inv && !item.inventoryId) {
+        const inv = await inventoryModel.findById(item.inventoryId);
+        if (inv) totalRemaining = inv.remainingWeight;
+      } else {
+        // FIFO mode: sum across all active batches for location
         const allBatches = await inventoryModel.find(invQuery);
-        if (allBatches.length > 0) {
-          const totalRemaining = allBatches.reduce((s, b) => s + b.remainingWeight, 0);
-          // mocked inv object for check
-          var mockInv = { remainingWeight: totalRemaining };
-        }
+        totalRemaining = allBatches.reduce((s, b) => s + b.remainingWeight, 0);
       }
-
-      const targetInv = inv || mockInv;
-
-      if (!targetInv) throw new Error("Inventory not found");
+      const targetInv = { remainingWeight: totalRemaining };
 
       const requiredBaseQty = await calculateBaseQty(item, product);
       console.log("──────── STOCK CHECK ────────");
       console.log("🧪 PRODUCT:", product.name?.en);
-      console.log("🧪 BASE UNIT:", product.baseUnitType);
-      console.log("🧪 PRODUCT WEIGHT (if base-pack):", product.weight);
       console.log("🧪 SALE QTY (UI):", item.quantity);
       console.log("🧪 REQUIRED BASE QTY:", requiredBaseQty);
       console.log("🧪 INVENTORY REMAINING (BASE):", targetInv.remainingWeight);
       console.log("────────────────────────────");
-      if (Number(targetInv.remainingWeight) < Number(requiredBaseQty)) {
-        throw new Error(`Insufficient stock for ${product.name?.en}`);
-      }
+      
+      item.isOutOfStock = Number(targetInv.remainingWeight) < Number(requiredBaseQty);
     }
 
     /* ---------------------------
@@ -252,7 +251,71 @@ export const createSale = async (req, res) => {
         cgstAmount,
         sgstAmount,
         total: Number(total.toFixed(2)),
+        isOutOfStock: Boolean(it.isOutOfStock)
       });
+
+      // 🎁 AUTOMATIC FREE ITEMS
+      if (product.freeItems && product.freeItems.length > 0) {
+        for (const freeObj of product.freeItems) {
+          const freeProduct = await Product.findById(freeObj.productId).lean();
+          if (freeProduct) {
+            const freeQty = Number(freeObj.quantity || 1) * quantity;
+            
+            // Stock Check for Free Item
+            const freeInvQuery = {
+              financialYearId: activeFY._id,
+              productId: freeProduct._id,
+              isFree: true,
+              $and: []
+            };
+
+            if (it.shopId) freeInvQuery.$and.push({ shopId: cleanObjectId(it.shopId) || req.user?.shopId });
+
+            const freeGodownId = cleanObjectId(it.godownId);
+            if (freeGodownId) {
+              freeInvQuery.$and.push({ godownId: freeGodownId });
+            } else {
+              freeInvQuery.$and.push({ $or: [{ godownId: null }, { godownId: { $exists: false } }] });
+            }
+            
+            if (freeInvQuery.$and.length === 0) delete freeInvQuery.$and;
+
+            const freeBatches = await inventoryModel.find(freeInvQuery).lean();
+            const totalFreeRemaining = freeBatches.reduce((s, b) => s + b.remainingWeight, 0);
+            
+            // Assume free item is LOOSE/PCS for simple qty calculation unless we want to use calculateBaseQty
+            // But usually free items are given in PCS/UNITS. 
+            // Better to use calculateBaseQty logic if we can mock an item object
+            const mockFreeItem = { quantity: freeQty, isLoose: true }; // Assume matching product's base unit
+            const requiredFreeBaseQty = await calculateBaseQty(mockFreeItem, freeProduct);
+
+            processedItems.push({
+              productId: freeProduct._id,
+              productName: freeProduct.name,
+              hsnCode: freeProduct.hsnCode || "",
+
+              quantity: freeQty,
+              unit: freeProduct.unit,
+              baseUnit: getBaseUnitObject(freeProduct),
+
+              shopId: cleanObjectId(it.shopId) || req.user?.shopId,
+              godownId: cleanObjectId(it.godownId),
+
+              purchasePrice: Number(freeProduct.purchasePrice || 0),
+              profitPercentage: 0,
+
+              sellingPrice: 0,
+              cgstPercentage: 0,
+              sgstPercentage: 0,
+              cgstAmount: 0,
+              sgstAmount: 0,
+              total: 0,
+              isFree: true,
+              isOutOfStock: totalFreeRemaining < requiredFreeBaseQty,
+            });
+          }
+        }
+      }
     }
 
     /* ---------------------------
@@ -298,21 +361,58 @@ export const createSale = async (req, res) => {
       : 0;
 
     const netTotal = grossTotal + handlingTotal - Number(discount || 0);
-    const paid = paymentSplits.reduce(
+    const totalProvidedPaid = paymentSplits.reduce(
       (sum, p) => sum + Number(p.amount || 0),
       0,
     );
 
-    const balanceAmount = netTotal - paid;
-    const paymentStatus =
-      paid === 0 ? "UNPAID" : paid < netTotal ? "PARTIAL" : "PAID";
+    // Fetch previous unpaid sales (oldest first)
+    const previousUnpaidSales = await Sale.find({
+      financialYearId: activeFY._id,
+      customerId: customer._id,
+      balanceAmount: { $gt: 0 },
+    }).sort({ createdAt: 1 }).session(session);
 
-    if (paid > netTotal) {
-      throw new Error("Paid amount cannot exceed net total");
+    let remainingPaidAmount = totalProvidedPaid;
+    let remainingSplits = paymentSplits.map(p => ({ method: p.method, amount: Number(p.amount || 0), referenceNumber: p.referenceNumber || "" }));
+
+    // Apply payment to oldest bills first
+    for (const oldSale of previousUnpaidSales) {
+      if (remainingPaidAmount <= 0) break;
+
+      const amountToApply = Math.min(oldSale.balanceAmount, remainingPaidAmount);
+      
+      oldSale.paidAmount = (oldSale.paidAmount || 0) + amountToApply;
+      oldSale.balanceAmount -= amountToApply;
+      oldSale.paymentStatus = oldSale.balanceAmount <= 0 ? "PAID" : "PARTIAL";
+
+      let appliedFromSplits = amountToApply;
+      for (let s of remainingSplits) {
+        if (s.amount > 0 && appliedFromSplits > 0) {
+          const splitDrop = Math.min(s.amount, appliedFromSplits);
+          s.amount -= splitDrop;
+          appliedFromSplits -= splitDrop;
+          oldSale.paymentSplits.push({ method: s.method, amount: splitDrop, referenceNumber: s.referenceNumber });
+        }
+      }
+
+      await oldSale.save({ session });
+      remainingPaidAmount -= amountToApply;
     }
 
-    if (!paymentSplits.length && paid > 0) {
-      throw new Error("Invalid payment split data");
+    if (remainingPaidAmount > netTotal) {
+      throw new Error(`Payment exceeds total outstanding balances across all bills by ₹${(remainingPaidAmount - netTotal).toFixed(2)}`);
+    }
+
+    const currentBillPaidAmount = remainingPaidAmount;
+    const balanceAmount = netTotal - currentBillPaidAmount;
+    const paymentStatus =
+      currentBillPaidAmount === 0 ? "UNPAID" : currentBillPaidAmount < netTotal ? "PARTIAL" : "PAID";
+    
+    const finalSplits = remainingSplits.filter(s => s.amount > 0);
+
+    if (!finalSplits.length && currentBillPaidAmount > 0) {
+      throw new Error("Invalid payment split data after distribution");
     }
 
     /* ---------------------------
@@ -328,7 +428,7 @@ export const createSale = async (req, res) => {
       financialYearId: activeFY._id,
       saleType: effectiveSaleType,
       billType,
-      paymentSplits,
+      paymentSplits: finalSplits,
       customerId,
       dueDate,
 
@@ -340,7 +440,7 @@ export const createSale = async (req, res) => {
       handlingCharges: includeHandling ? handlingCharges : [],
       handlingTotal,
       netTotal,
-      paidAmount: paid,
+      paidAmount: currentBillPaidAmount,
       balanceAmount,
       paymentStatus,
 
@@ -437,39 +537,79 @@ export const createSale = async (req, res) => {
         if (it.skuId && inv.purchaseType === "SKU") {
           inv.remainingPacks -= Number(it.quantity);
         }
-        if (inv.remainingWeight < 0) throw new Error("Stock underflow for selected batch");
         await inv.save({ session });
       } else {
         // FIFO Deduction
+        const invQuery = {
+          financialYearId: activeFY._id,
+          productId: it.productId,
+          $and: []
+        };
+
+        if (it.isFree) {
+          invQuery.isFree = true;
+        } else {
+          invQuery.$and.push({ $or: [{ isFree: false }, { isFree: { $exists: false } }] });
+        }
+        
+        if (it.shopId) invQuery.$and.push({ shopId: it.shopId });
+
+        if (it.godownId) {
+          invQuery.$and.push({ godownId: it.godownId });
+        } else {
+          invQuery.$and.push({ $or: [{ godownId: null }, { godownId: { $exists: false } }] });
+        }
+
         const batches = await inventoryModel
-          .find({
-            financialYearId: activeFY._id,
-            productId: it.productId,
-            ...(it.godownId ? { godownId: it.godownId } : { shopId: it.shopId }),
-            remainingWeight: { $gt: 0 },
-          })
+          .find(invQuery)
           .sort({ createdAt: 1 })
           .session(session);
 
         let remainingToDeduct = deductBaseQty;
         let remainingPacksToDeduct = it.skuId ? Number(it.quantity) : 0;
 
-        for (const batch of batches) {
-          if (remainingToDeduct <= 0) break;
-          const deductFromThis = Math.min(batch.remainingWeight, remainingToDeduct);
-          batch.remainingWeight -= deductFromThis;
-          remainingToDeduct -= deductFromThis;
+        if (batches.length === 0) {
+           const newInv = new inventoryModel({
+              financialYearId: activeFY._id,
+              productId: it.productId,
+              shopId: it.shopId,
+              godownId: it.godownId,
+              purchaseType: it.skuId ? "SKU" : "LOOSE",
+              baseUnitType: product.baseUnitType || "G",
+              isFree: it.isFree === true,
+              remainingWeight: -remainingToDeduct,
+              remainingPacks: -remainingPacksToDeduct,
+              totalWeight: 0,
+              totalPacks: 0,
+              batchNo: "NEG-STOCK-" + Date.now().toString().slice(-4)
+           });
+           await newInv.save({ session });
+        } else {
+           for (const batch of batches) {
+             if (remainingToDeduct <= 0) break;
+             if (batch.remainingWeight <= 0) continue; 
+             const deductFromThis = Math.min(batch.remainingWeight, remainingToDeduct);
+             batch.remainingWeight -= deductFromThis;
+             remainingToDeduct -= deductFromThis;
 
-          // If SKU, also deduct packs proportionately or as whole
-          if (it.skuId && batch.purchaseType === "SKU" && remainingPacksToDeduct > 0) {
-            const deductPacks = Math.min(batch.remainingPacks, remainingPacksToDeduct);
-            batch.remainingPacks -= deductPacks;
-            remainingPacksToDeduct -= deductPacks;
-          }
+             if (it.skuId && batch.purchaseType === "SKU" && remainingPacksToDeduct > 0) {
+               const deductPacks = Math.min(batch.remainingPacks, remainingPacksToDeduct);
+               batch.remainingPacks -= deductPacks;
+               remainingPacksToDeduct -= deductPacks;
+             }
 
-          await batch.save({ session });
+             await batch.save({ session });
+           }
+
+           if (remainingToDeduct > 0) {
+             const lastBatch = batches[batches.length - 1];
+             lastBatch.remainingWeight -= remainingToDeduct;
+             if (it.skuId && lastBatch.purchaseType === "SKU") {
+               lastBatch.remainingPacks -= remainingPacksToDeduct;
+             }
+             await lastBatch.save({ session });
+           }
         }
-        if (remainingToDeduct > 0) throw new Error("Insufficient total stock across batches");
       }
     }
 

@@ -7,3 +7,4 @@ export { default as Login } from "./Login";
 export { default as UserManagement } from "./Employee";
 export { default as ProductPackList } from "./ProductPackList";
 export { default as FinancialYearManagement } from "./FinancialYearManagement";
+export { default as FreeInventoryList } from "./Admin/FreeInventoryList";

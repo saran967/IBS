@@ -10,6 +10,7 @@ import {
   ProductList,
   UserManagement,
   FinancialYearManagement,
+  FreeInventoryList,
 } from "../pages";
 import AdminControl from "../components/Admin/AdminControl";
 import PurchaseList from "../pages/PurchaseList";
@@ -138,6 +139,12 @@ const router = createBrowserRouter([
         path: "inventory",
         element: (
           <PermissionRoute moduleId="inventory" element={<InventoryList />} />
+        ),
+      },
+      {
+        path: "free-inventory",
+        element: (
+          <PermissionRoute moduleId="inventory" element={<FreeInventoryList />} />
         ),
       },
       {

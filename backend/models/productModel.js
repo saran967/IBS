@@ -57,6 +57,13 @@ const productSchema = new mongoose.Schema(
     allowRetail: { type: Boolean, default: false },
     hsnCode: { type: String, default: "" },
     maintainInventory: { type: Boolean, default: true },
+    isFreeProduct: { type: Boolean, default: false },
+    freeItems: [
+      {
+        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+        quantity: { type: Number, default: 1 },
+      },
+    ],
   },
   { timestamps: true },
 );

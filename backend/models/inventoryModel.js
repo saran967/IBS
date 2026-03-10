@@ -83,6 +83,7 @@ const inventorySchema = new Schema(
     minStockLevel: { type: Number, default: 0 },
     lowStockAlert: { type: Boolean, default: false },
 
+    isFree: { type: Boolean, default: false },
     lastUpdated: { type: Date, default: Date.now },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
   },
@@ -102,8 +103,9 @@ inventorySchema.index(
     purchaseType: 1,
     unitWeight: 1,
     sellUnit: 1,
+    isFree: 1,
   },
-  { unique: true, name: "uniq_fy_product_location_batch_variant" },
+  { unique: true, name: "uniq_fy_product_location_batch_variant_free" },
 );
 
 export default mongoose.model("Inventory", inventorySchema);

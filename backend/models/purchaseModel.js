@@ -95,6 +95,8 @@ const purchaseSchema = new Schema(
     purchaseDate: { type: Date, default: Date.now },
     dueDate: { type: Date },
     batchNo: { type: String, unique: true, index: true },
+    isFree: { type: Boolean, default: false },
+    assignToProduct: { type: Schema.Types.ObjectId, ref: "Product", default: null },
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },

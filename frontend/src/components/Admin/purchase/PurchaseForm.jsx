@@ -45,6 +45,8 @@ export default function PurchaseForm({ onSuccess }) {
     baseQty: "", //  only for Loose
     unitPrice: "",
     totalAmount: "",
+    isFree: false,
+    assignToProduct: "",
   });
 
   const [showTransport, setShowTransport] = useState(false);
@@ -341,6 +343,8 @@ export default function PurchaseForm({ onSuccess }) {
       unitPrice: Number(formData.unitPrice),
       splits,
       transport: showTransport ? transport : {},
+      isFree: formData.isFree,
+      assignToProduct: formData.assignToProduct || null,
     };
 
     try {
@@ -361,6 +365,8 @@ export default function PurchaseForm({ onSuccess }) {
         baseQty: "",
         unitPrice: "",
         totalAmount: "",
+        isFree: false,
+        assignToProduct: "",
       });
 
       setTransport({
@@ -426,6 +432,43 @@ export default function PurchaseForm({ onSuccess }) {
                 />
               )}
             />
+          </Grid>
+
+          {/* FREE CHECKBOX + ASSIGN PRODUCT */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Box display="flex" alignItems="center" gap={1}>
+              <TextField
+                select
+                label="Type"
+                size="small"
+                name="isFree"
+                value={formData.isFree}
+                onChange={(e) => setFormData({ ...formData, isFree: e.target.value === "true" })}
+                sx={{ minWidth: 100 }}
+              >
+                <MenuItem value="false">PAID</MenuItem>
+                <MenuItem value="true">FREE</MenuItem>
+              </TextField>
+
+              {formData.isFree && (
+                <Autocomplete
+                  sx={{ flex: 1 }}
+                  options={productOptions}
+                  loading={productLoading}
+                  getOptionLabel={(p) => (p.productCode ? `${p.productCode} - ${p.name?.en}` : p.name?.en || "")}
+                  onInputChange={(_, value) => searchProductAPI(value)}
+                  onChange={(_, value) => setFormData({ ...formData, assignToProduct: value?._id || "" })}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Assign to Main Product"
+                      size="small"
+                      placeholder="Main Product"
+                    />
+                  )}
+                />
+              )}
+            </Box>
           </Grid>
 
           {/* VENDOR */}

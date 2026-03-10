@@ -42,11 +42,52 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
     minStockLevel: "",
     mrp: [""],
     maintainInventory: true,
+    isFreeProduct: false,
+    freeItems: [], // { productId: "", quantity: 1 }
   });
 
   const [categories, setCategories] = useState([]);
   const [units, setUnits] = useState([]);
+  const [freeProductSearch, setFreeProductSearch] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const svgRef = useRef(null);
+
+  const fetchFreeProducts = async (query) => {
+    if (!query || query.length < 2) return;
+    setSearchLoading(true);
+    try {
+      const { data } = await customFetch.get(`/product/search?q=${query}`);
+      setFreeProductSearch(data.products || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const addFreeItem = (prod) => {
+    if (!prod) return;
+    if (formData.freeItems.some(i => String(i.productId?._id || i.productId) === String(prod._id))) {
+      return toast.warning("Item already added");
+    }
+    setFormData(prev => ({
+      ...prev,
+      freeItems: [...prev.freeItems, { productId: prod, quantity: 1 }]
+    }));
+  };
+
+  const updateFreeItemQty = (index, qty) => {
+    const updated = [...formData.freeItems];
+    updated[index].quantity = Number(qty);
+    setFormData(prev => ({ ...prev, freeItems: updated }));
+  };
+
+  const removeFreeItem = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      freeItems: prev.freeItems.filter((_, i) => i !== index)
+    }));
+  };
 
   useEffect(() => {
     if (editProduct) {
@@ -77,6 +118,8 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         sellingPriceforAgent: editProduct.sellingPriceforAgent || "",
         minStockLevel: editProduct.minStockLevel || "",
         maintainInventory: editProduct.maintainInventory ?? true,
+        isFreeProduct: editProduct.isFreeProduct ?? false,
+        freeItems: editProduct.freeItems || [],
       });
     } else {
       setFormData({
@@ -88,6 +131,8 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         packedDate: "", useByDate: "", mrp: [""],
         sellingPriceforB2B: "", sellingPriceforAgent: "", minStockLevel: "",
         maintainInventory: true,
+        isFreeProduct: false,
+        freeItems: [],
       });
     }
   }, [editProduct]);
@@ -174,6 +219,8 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
         sellingPriceforAgent: Number(formData.sellingPriceforAgent || 0),
         minStockLevel: Number(formData.minStockLevel || 0),
         maintainInventory: formData.maintainInventory,
+        isFreeProduct: formData.isFreeProduct,
+        freeItems: formData.freeItems,
       };
 
       if (editProduct) {
@@ -197,6 +244,8 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
           sellingPriceforB2B: "",
           sellingPriceforAgent: "", minStockLevel: "",
           maintainInventory: true,
+          isFreeProduct: false,
+          freeItems: [],
         });
       }
     } catch (err) {
@@ -415,11 +464,62 @@ const ProductForm = ({ refreshList, editProduct, clearEdit }) => {
               control={<Checkbox checked={formData.maintainInventory} onChange={e => setFormData(prev => ({ ...prev, maintainInventory: e.target.checked }))} color="default" />}
               label={
                 <Box>
-                  <Typography variant="body1" fontWeight={600}>Maintain Inventory</Typography>
-                  <Typography variant="caption" color="inherit">Track product stock level</Typography>
+                   <Typography variant="body1" fontWeight={600}>Maintain Inventory</Typography>
+                   <Typography variant="caption" color="inherit">Track product stock level</Typography>
                 </Box>
               }
             />
+          </Box>
+        </Grid>
+
+        <Grid item xs={12} sx={{ mt: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" fontWeight={600} gutterBottom>
+            🎁 FREE ITEMS BUNDLE (Auto-add during Sales)
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          
+          <Box sx={{ p: 2, border: "1px dashed #ccc", borderRadius: 2 }}>
+            <Autocomplete
+              size="small"
+              options={freeProductSearch}
+              loading={searchLoading}
+              getOptionLabel={(p) => p.productCode ? `${p.productCode} - ${p.name?.en}` : p.name?.en || ""}
+              onInputChange={(e, val) => fetchFreeProducts(val)}
+              onChange={(e, val) => addFreeItem(val)}
+              renderInput={(params) => (
+                <TextField {...params} label="Search Free Product to Add" placeholder="Type name or code..." />
+              )}
+              sx={{ mb: 2, maxWidth: 400 }}
+            />
+
+            {formData.freeItems.length > 0 && (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                {formData.freeItems.map((item, idx) => {
+                  const p = item.productId;
+                  return (
+                    <Paper key={idx} sx={{ p: 1, display: "flex", alignItems: "center", gap: 1, border: "1px solid #eee" }}>
+                      <Box>
+                        <Typography variant="caption" fontWeight={700}>{p.name?.en || "Product"}</Typography>
+                        <Typography variant="body2" sx={{ fontSize: 10 }}>{p.productCode}</Typography>
+                      </Box>
+                      <TextField
+                        size="small"
+                        type="number"
+                        label="Qty"
+                        value={item.quantity}
+                        onChange={(e) => updateFreeItemQty(idx, e.target.value)}
+                        sx={{ width: 60 }}
+                        inputProps={{ min: 1 }}
+                      />
+                      <Button color="error" size="small" onClick={() => removeFreeItem(idx)}>×</Button>
+                    </Paper>
+                  );
+                })}
+              </Box>
+            )}
+            {formData.freeItems.length === 0 && (
+              <Typography variant="caption" color="text.secondary">No free items linked to this product.</Typography>
+            )}
           </Box>
         </Grid>
 

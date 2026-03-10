@@ -106,6 +106,12 @@ export default function Sidebar({ open, setOpen }) {
       icon: <MdLayers />,
     },
     {
+      id: "free-inventory",
+      name: "Free Item Inventory",
+      path: `/${userLang}/admin/free-inventory`,
+      icon: <MdLayers />,
+    },
+    {
       id: "low-stock-report",
       name: "Low Stock Report",
       path: `/${userLang}/admin/low-stock-report`,
