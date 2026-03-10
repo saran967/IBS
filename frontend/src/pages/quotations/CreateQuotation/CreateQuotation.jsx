@@ -7,6 +7,7 @@ import {
     TextField,
     Autocomplete,
     Button,
+    MenuItem,
 } from "@mui/material";
 import { toast } from "react-toastify";
 import customFetch from "../../../utils/customFetch";
@@ -50,6 +51,7 @@ export default function CreateQuotation() {
         hsnCode: "",
         isLoose: false,
         skuId: "",
+        productDoc: null,
     });
 
     const [items, setItems] = useState([createRow()]);
@@ -60,6 +62,32 @@ export default function CreateQuotation() {
     });
 
     const getText = (val) => getLocalizedText(val, lang);
+
+    const getProductPriceByTier = (product, tier, fallback = 0) => {
+        if (!product) return numeric(fallback);
+        let price = product.sellingPrice ?? fallback;
+        if (tier === "W") price = product.sellingPriceforB2B ?? price;
+        if (tier === "SW") price = product.sellingPriceforAgent ?? price;
+        return numeric(price);
+    };
+
+    const getSkuPriceByTier = (sku, tier, fallback = 0) => {
+        if (!sku) return numeric(fallback);
+        let price = sku.retailPrice ?? fallback;
+        if (tier === "W") price = sku.wholesalePrice ?? price;
+        if (tier === "SW") price = sku.agentPrice ?? price;
+        return numeric(price);
+    };
+
+    const loadProductSkus = async (productId) => {
+        if (!productId) return [];
+        try {
+            const res = await customFetch.get(`/retail-skus/product/${productId}`);
+            return res.data?.data || [];
+        } catch {
+            return [];
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -101,41 +129,61 @@ export default function CreateQuotation() {
         setTotals(next);
     };
 
+    const recomputeRowsForBillType = (rows, selectedBillType) =>
+        rows.map((row) => {
+            if (!row.productId) return row;
+            const qty = numeric(row.quantity);
+            const price = numeric(row.sellingPrice);
+            const cgst = selectedBillType === "WITHOUT_GST" ? 0 : numeric(row.cgstPercentage);
+            const sgst = selectedBillType === "WITHOUT_GST" ? 0 : numeric(row.sgstPercentage);
+            const cgstAmt = (price * cgst) / 100;
+            const sgstAmt = (price * sgst) / 100;
+            const total =
+                selectedBillType === "WITHOUT_GST"
+                    ? price * qty
+                    : (price + cgstAmt + sgstAmt) * qty;
+            return { ...row, total };
+        });
+
+    useEffect(() => {
+        const recalculated = recomputeRowsForBillType(items, billType);
+        setItems(recalculated);
+        handleRecalc(recalculated);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [billType]);
+
     const handleItemChange = (index, field, value) => {
         const updated = [...items];
         updated[index][field] = value;
 
         if (field === "unit") {
-            const product = products.find(p => String(p._id) === String(updated[index].productId));
-            if (product) {
-                if (value === "LOOSE") {
-                    updated[index].isLoose = true;
-                    updated[index].skuId = "";
-                } else if (value === "__BASE__") {
-                    updated[index].isLoose = false;
-                    updated[index].skuId = "";
-                } else {
-                    updated[index].isLoose = false;
-                    updated[index].skuId = value;
-                }
+            const row = updated[index];
+            const productDoc =
+                row.productDoc || products.find((p) => String(p._id) === String(row.productId));
+            const basePrice = getProductPriceByTier(productDoc, priceTier, row.sellingPrice);
+
+            if (value === "LOOSE") {
+                row.isLoose = true;
+                row.skuId = "";
+                row.sellingPrice = basePrice;
+            } else if (value === "__BASE__") {
+                row.isLoose = false;
+                row.skuId = "";
+                row.sellingPrice = basePrice;
+            } else {
+                row.isLoose = false;
+                row.skuId = value;
+                const selectedSku = (row.skuList || []).find(
+                    (sku) => String(sku._id) === String(value),
+                );
+                row.sellingPrice = getSkuPriceByTier(selectedSku, priceTier, basePrice);
             }
         }
 
-        // Recalculate row total
-        const qty = numeric(updated[index].quantity);
-        const price = numeric(updated[index].sellingPrice);
-        const cgst = billType === "WITHOUT_GST" ? 0 : numeric(updated[index].cgstPercentage);
-        const sgst = billType === "WITHOUT_GST" ? 0 : numeric(updated[index].sgstPercentage);
+        const recalculated = recomputeRowsForBillType(updated, billType);
 
-        const cgstAmt = (price * cgst) / 100;
-        const sgstAmt = (price * sgst) / 100;
-
-        updated[index].total = billType === "WITHOUT_GST"
-            ? price * qty
-            : (price + cgstAmt + sgstAmt) * qty;
-
-        setItems(updated);
-        handleRecalc(updated);
+        setItems(recalculated);
+        handleRecalc(recalculated);
     };
 
     const handleProductCodeChange = async (index, code) => {
@@ -146,9 +194,10 @@ export default function CreateQuotation() {
 
             if (product) {
                 const updated = [...items];
-                let initialPrice = product.sellingPrice ?? 0;
-                if (priceTier === "W") initialPrice = product.sellingPriceforB2B ?? initialPrice;
-                if (priceTier === "SW") initialPrice = product.sellingPriceforAgent ?? initialPrice;
+                const skuList = Array.isArray(product.skus) && product.skus.length
+                    ? product.skus
+                    : await loadProductSkus(product._id);
+                const initialPrice = getProductPriceByTier(product, priceTier, 0);
 
                 updated[index] = {
                     ...updated[index],
@@ -159,8 +208,9 @@ export default function CreateQuotation() {
                     cgstPercentage: product.cgstPercentage || 0,
                     sgstPercentage: product.sgstPercentage || 0,
                     productBaseUnit: product.unit,
-                    skuList: product.skus || [],
+                    skuList,
                     hsnCode: product.hsnCode || "",
+                    productDoc: { ...product, skus: skuList },
                 };
                 setItems(updated);
                 handleRecalc(updated);

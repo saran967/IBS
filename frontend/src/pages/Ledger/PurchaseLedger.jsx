@@ -176,75 +176,139 @@ export default function PurchaseLedger() {
 
   // EXPORT EXCEL
   const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(
-      ledger.map((row) => ({
-        Date: row.date ? new Date(row.date).toLocaleDateString() : "-",
-        Vendor: row.vendor || "-",
-        Bill: row.billAmount ?? 0,
-        Paid: row.paidAmount ?? 0,
-        Balance: row.balanceAmount ?? 0,
-      })),
-    );
-
+    const ledgerRows = ledger.map((row) => ({
+      Date: row.date ? new Date(row.date).toLocaleDateString() : "-",
+      Vendor: getLocalizedText(row.vendor, lang) || "-",
+      Bill: row.billAmount ?? 0,
+      Paid: row.paidAmount ?? 0,
+      Balance: row.balanceAmount ?? 0,
+    }));
+    const monthlyRows = monthly.map((m) => ({
+      Month: m.month,
+      Total: m.total ?? 0,
+    }));
+    const vendorRows = top5VendorSummary.map((v) => ({
+      Vendor: getLocalizedText(v.vendor, lang) || "-",
+      Amount: v.amount ?? 0,
+    }));
+    const purchaseVsPaidRows = purchasePayments.map((p) => ({
+      Month: p.month,
+      Purchase: p.purchase ?? 0,
+      Paid: p.paid ?? 0,
+      Balance: p.balance ?? 0,
+    }));
+    const outstandingRows = top5Outstanding.map((o) => ({
+      Vendor: getLocalizedText(o.vendor, lang) || "-",
+      Pending: o.pending ?? 0,
+    }));
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Purchase Ledger");
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(ledgerRows),
+      "Purchase Ledger",
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(monthlyRows),
+      "Monthly Purchases",
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(vendorRows),
+      "Vendor Summary",
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(purchaseVsPaidRows),
+      "Purchase vs Paid",
+    );
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.json_to_sheet(outstandingRows),
+      "Outstanding",
+    );
     XLSX.writeFile(wb, "Purchase_Ledger.xlsx");
   };
 
   // ===============================================================
   //  FIXED PDF EXPORT (NO ERRORS)
   // ===============================================================
-  // const exportPDF = () => {
-  //   try {
-  //     const doc = new jsPDF();
-
-  //     doc.setFontSize(16);
-  //     doc.text("Purchase Ledger Entries", 14, 15);
-
-  //     const tableRows = ledger.map((row) => [
-  //       row.date ? new Date(row.date).toLocaleDateString() : "-",
-  //       row.vendor || "-",
-  //       row.billAmount ?? 0,
-  //       row.paidAmount ?? 0,
-  //       row.balanceAmount ?? 0,
-  //     ]);
-
-  //     autoTable(doc, {
-  //       startY: 25,
-  //       head: [["Date", "Vendor", "Bill", "Paid", "Balance"]],
-  //       body: tableRows,
-  //     });
-
-  //     doc.save("Purchase_Ledger.pdf");
-  //   } catch (err) {
-  //     console.log("PDF ERROR:", err);
-  //   }
-  // };
-
   const exportPDF = () => {
     try {
       const doc = new jsPDF();
-
       doc.setFontSize(16);
       doc.text("Purchase Ledger Entries", 14, 15);
-
       const tableRows = ledger.map((row) => [
         row.date ? new Date(row.date).toLocaleDateString() : "-",
-
-        // ✅ FIX HERE
         getLocalizedText(row.vendor, lang) || "-",
-
         row.billAmount ?? 0,
         row.paidAmount ?? 0,
         row.balanceAmount ?? 0,
       ]);
-
       autoTable(doc, {
         startY: 25,
         head: [["Date", "Vendor", "Bill", "Paid", "Balance"]],
         body: tableRows,
       });
-
+      let nextY = (doc.lastAutoTable?.finalY || 25) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+      doc.setFontSize(12);
+      doc.text("Monthly Purchases", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Month", "Total"]],
+        body: monthly.map((m) => [m.month, m.total ?? 0]),
+      });
+      nextY = (doc.lastAutoTable?.finalY || nextY) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+      doc.setFontSize(12);
+      doc.text("Vendor Summary", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Vendor", "Amount"]],
+        body: top5VendorSummary.map((v) => [
+          getLocalizedText(v.vendor, lang) || "-",
+          v.amount ?? 0,
+        ]),
+      });
+      nextY = (doc.lastAutoTable?.finalY || nextY) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+      doc.setFontSize(12);
+      doc.text("Purchase vs Paid", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Month", "Purchase", "Paid", "Balance"]],
+        body: purchasePayments.map((p) => [
+          p.month,
+          p.purchase ?? 0,
+          p.paid ?? 0,
+          p.balance ?? 0,
+        ]),
+      });
+      nextY = (doc.lastAutoTable?.finalY || nextY) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+      doc.setFontSize(12);
+      doc.text("Outstanding by Vendor", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Vendor", "Pending"]],
+        body: top5Outstanding.map((o) => [
+          getLocalizedText(o.vendor, lang) || "-",
+          o.pending ?? 0,
+        ]),
+      });
       doc.save("Purchase_Ledger.pdf");
     } catch (err) {
       console.log("PDF ERROR:", err);
@@ -676,3 +740,4 @@ export default function PurchaseLedger() {
     </Box>
   );
 }
+

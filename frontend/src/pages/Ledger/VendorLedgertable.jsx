@@ -24,10 +24,15 @@ import {
   Modal,
 } from "@mui/material";
 import PaymentIcon from "@mui/icons-material/Payment";
+import GridOnIcon from "@mui/icons-material/GridOn";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 
 import { toast } from "react-toastify";
 import { useSearchParams } from "react-router-dom";
 import customFetch from "../../utils/customFetch";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // Recharts
 import {
@@ -255,6 +260,115 @@ export default function VendorLedger() {
       </CardContent>
     </Card>
   );
+
+  const exportToExcel = () => {
+    if (!rows.length && !pieData.length && !barData.length) {
+      toast.warn("No data to export");
+      return;
+    }
+
+    const ledgerRows = rows.map((row, index) => ({
+      "#": index + 1,
+      Date: row.date ? new Date(row.date).toLocaleDateString("en-IN") : "-",
+      Type: row.type || "-",
+      Reference: row.referenceId || "-",
+      Debit: row.debit ? Number(row.debit).toFixed(2) : "0.00",
+      Credit: row.credit ? Number(row.credit).toFixed(2) : "0.00",
+      Balance: Number(row.balance || 0).toFixed(2),
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(ledgerRows),
+      "Vendor Ledger",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(
+        pieData.map((item) => ({
+          Metric: item.name,
+          Value: item.value ?? 0,
+        })),
+      ),
+      "Vendor Summary",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.json_to_sheet(
+        barData.map((item) => ({
+          Product: item.productName || "Unknown",
+          Count: item.count ?? 0,
+        })),
+      ),
+      "Product Count",
+    );
+    XLSX.writeFile(workbook, "Vendor_Ledger.xlsx");
+  };
+
+  const exportToPDF = () => {
+    if (!rows.length && !pieData.length && !barData.length) {
+      toast.warn("No data to export");
+      return;
+    }
+
+    const doc = new jsPDF("landscape");
+    doc.setFontSize(14);
+    doc.text(`Vendor Ledger${vendorName ? ` - ${vendorName}` : ""}`, 14, 14);
+
+    if (rows.length) {
+      const tableRows = rows.map((row, index) => [
+        index + 1,
+        row.date ? new Date(row.date).toLocaleDateString("en-IN") : "-",
+        row.type || "-",
+        row.referenceId || "-",
+        row.debit ? Number(row.debit).toFixed(2) : "0.00",
+        row.credit ? Number(row.credit).toFixed(2) : "0.00",
+        Number(row.balance || 0).toFixed(2),
+      ]);
+
+      autoTable(doc, {
+        startY: 22,
+        head: [["#", "Date", "Type", "Reference", "Debit", "Credit", "Balance"]],
+        body: tableRows,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 66, 66] },
+      });
+    }
+
+    let nextY = (doc.lastAutoTable?.finalY || 22) + 10;
+    if (nextY > 180) {
+      doc.addPage();
+      nextY = 20;
+    }
+
+    if (pieData.length) {
+      doc.setFontSize(12);
+      doc.text("Vendor Summary", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Metric", "Value"]],
+        body: pieData.map((item) => [item.name, item.value ?? 0]),
+      });
+      nextY = (doc.lastAutoTable?.finalY || nextY) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+    }
+
+    if (barData.length) {
+      doc.setFontSize(12);
+      doc.text("Product Count", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Product", "Count"]],
+        body: barData.map((item) => [item.productName || "Unknown", item.count ?? 0]),
+      });
+    }
+
+    doc.save("Vendor_Ledger.pdf");
+  };
 
   return (
     <Box p={isExtraSmall ? 0.5 : isSmallMobile ? 1 : isMobile ? 2 : 3}>
@@ -567,6 +681,23 @@ export default function VendorLedger() {
             size={isExtraSmall ? "small" : "medium"}
             sx={{ ml: 1 }}
           />
+
+          <IconButton
+            size="small"
+            sx={{ ml: 1 }}
+            title="Export Excel"
+            onClick={exportToExcel}
+          >
+            <GridOnIcon fontSize="small" />
+          </IconButton>
+
+          <IconButton
+            size="small"
+            title="Export PDF"
+            onClick={exportToPDF}
+          >
+            <PictureAsPdfIcon fontSize="small" />
+          </IconButton>
 
           {/* ADD REPAYMENT BUTTON */}
          <IconButton

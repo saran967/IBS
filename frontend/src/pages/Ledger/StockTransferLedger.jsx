@@ -821,6 +821,41 @@ export default function StockTransferLedger() {
       : transfer.toGodownId?.name?.en || transfer.toGodownId?.name;
   };
 
+  const buildTransferChartData = (records = []) => {
+    const productMap = {};
+    const dateMap = {};
+    const shopMap = {};
+
+    records.forEach((transfer) => {
+      const qty = Number(transfer.quantity || 0);
+      const productName =
+        transfer.productId?.name?.en || transfer.productId?.name || "Unknown";
+      const dateLabel = transfer.transferDate
+        ? new Date(transfer.transferDate).toLocaleDateString("en-IN")
+        : "Unknown";
+      const toShop = getLocationName(transfer, "to") || "Unknown";
+
+      productMap[productName] = (productMap[productName] || 0) + qty;
+      dateMap[dateLabel] = (dateMap[dateLabel] || 0) + qty;
+      shopMap[toShop] = (shopMap[toShop] || 0) + qty;
+    });
+
+    const productRows = Object.entries(productMap)
+      .map(([name, quantity]) => ({ name, quantity }))
+      .sort((a, b) => b.quantity - a.quantity);
+
+    const dateRows = Object.entries(dateMap).map(([date, quantity]) => ({
+      date,
+      quantity,
+    }));
+
+    const shopRows = Object.entries(shopMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
+    return { productRows, dateRows, shopRows };
+  };
+
   // Fetch shops + products
  const fetchDropdowns = async () => {
   try {
@@ -963,6 +998,7 @@ setProducts(productList);
     setExporting(true);
     try {
       const allTransfers = await fetchTransfers(true);
+      const { productRows, dateRows, shopRows } = buildTransferChartData(allTransfers);
       
       const excelData = allTransfers.map((transfer, index) => ({
         '#': index + 1,
@@ -975,9 +1011,42 @@ setProducts(productList);
         'Transfer ID': transfer._id,
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Transfers");
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.json_to_sheet(excelData),
+        "Stock Transfers",
+      );
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.json_to_sheet(
+          dateRows.map((row) => ({
+            Date: row.date,
+            Quantity: row.quantity,
+          })),
+        ),
+        "Transfers Over Time",
+      );
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.json_to_sheet(
+          shopRows.map((row) => ({
+            Shop: row.name,
+            Quantity: row.value,
+          })),
+        ),
+        "Transfers by Shop",
+      );
+      XLSX.utils.book_append_sheet(
+        workbook,
+        XLSX.utils.json_to_sheet(
+          productRows.map((row) => ({
+            Product: row.name,
+            Quantity: row.quantity,
+          })),
+        ),
+        "Transfers by Product",
+      );
       
       XLSX.writeFile(workbook, "Stock_Transfer_Ledger.xlsx");
       toast.success("Excel export successful");
@@ -997,6 +1066,7 @@ setProducts(productList);
         toast.warning("No records found for export");
         return;
       }
+      const { productRows, dateRows, shopRows } = buildTransferChartData(allTransfers);
       
       const doc = new jsPDF("landscape");
       
@@ -1036,6 +1106,48 @@ setProducts(productList);
         doc.setFontSize(12);
         doc.text("Error generating table. Please try again.", 20, 40);
       }
+
+      let nextY = (doc.lastAutoTable?.finalY || 40) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.text("Transfers Over Time", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Date", "Quantity"]],
+        body: dateRows.map((row) => [row.date, row.quantity]),
+      });
+
+      nextY = (doc.lastAutoTable?.finalY || nextY) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.text("Transfers by Shop", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Shop", "Quantity"]],
+        body: shopRows.map((row) => [row.name, row.value]),
+      });
+
+      nextY = (doc.lastAutoTable?.finalY || nextY) + 10;
+      if (nextY > 180) {
+        doc.addPage();
+        nextY = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.text("Transfers by Product", 14, nextY);
+      autoTable(doc, {
+        startY: nextY + 3,
+        head: [["Product", "Quantity"]],
+        body: productRows.map((row) => [row.name, row.quantity]),
+      });
       
       doc.save("Stock_Transfer_Ledger.pdf");
       toast.success("PDF export successful");
