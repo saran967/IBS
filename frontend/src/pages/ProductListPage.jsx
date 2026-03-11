@@ -94,7 +94,7 @@ export default function ProductList() {
 
   const filteredProducts = products.filter((p) => {
     if (!selectedCategory) return true;
-    return makeCategoryKey(p.category) === selectedCategory.key;
+    return makeCategoryKey(p.category) === makeCategoryKey(selectedCategory);
   });
 
   const handlePageChange = (val) => {

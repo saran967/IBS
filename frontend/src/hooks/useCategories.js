@@ -113,7 +113,8 @@ export const useCategories = () => {
   // --------------------------------
   // CATEGORY KEY (for filtering)
   // --------------------------------
-  const makeCategoryKey = (cat) => `${cat?.en || ""}__${cat?.ta || ""}`;
+  const normalize = (v) => String(v || "").trim().toLowerCase();
+  const makeCategoryKey = (cat) => normalize(cat?.en || cat?.ta);
 
   useEffect(() => {
     fetchCategories();

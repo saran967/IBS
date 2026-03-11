@@ -148,12 +148,17 @@ const AdminControl = () => {
   const [openModal, setOpenModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const handleOpen = () => setOpenModal(true);
   const handleClose = () => setOpenModal(false);
+  const handleCreateSuccess = () => {
+    setRefreshKey((prev) => prev + 1);
+    handleClose();
+  };
 
   // Load current user
   useEffect(() => {
@@ -279,10 +284,10 @@ const AdminControl = () => {
 
       {/* Lists */}
       {isAdmin && activeTab === "subadmin" && (
-        <SubAdminList currentUser={currentUser} />
+        <SubAdminList currentUser={currentUser} refreshKey={refreshKey} />
       )}
 
-      {activeTab === "employee" && <EmployeeList currentUser={currentUser} />}
+      {activeTab === "employee" && <EmployeeList refreshKey={refreshKey} />}
 
       {/* Modal */}
       <Modal open={openModal} onClose={handleClose}>
@@ -300,9 +305,16 @@ const AdminControl = () => {
           }}
         >
           {activeTab === "subadmin" ? (
-            <AddSubAdminForm onClose={handleClose} />
+            <AddSubAdminForm
+              onClose={handleClose}
+              onSuccess={handleCreateSuccess}
+            />
           ) : (
-            <AddEmployeeForm onClose={handleClose} currentUser={currentUser} />
+            <AddEmployeeForm
+              onClose={handleClose}
+              currentUser={currentUser}
+              onSuccess={handleCreateSuccess}
+            />
           )}
         </Box>
       </Modal>

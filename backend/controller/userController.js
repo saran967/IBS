@@ -89,6 +89,18 @@ export const createShopWithSubAdmin = async (req, res) => {
           message: "This shop already has a subadmin assigned",
         });
       }
+
+      // Backward-safe guard: enforce using User collection as source of truth
+      // in case shop.subAdmins array is stale in older data.
+      const existingSubAdmin = await User.findOne({
+        role: "subadmin",
+        shopId: shop._id,
+      }).select("_id");
+      if (existingSubAdmin) {
+        return res.status(400).json({
+          message: "This shop already has a subadmin assigned",
+        });
+      }
     } else {
       //  Limit admin to 4 total shops
       const shopCount = await Shop.countDocuments({ createdBy: admin._id });
@@ -387,9 +399,42 @@ export const updateSubAdmin = async (req, res) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
+    const currentShopId = subAdmin.shopId ? subAdmin.shopId.toString() : null;
+    const nextShopId = shopId ? shopId.toString() : null;
+
+    // If reassigning subadmin to another shop, enforce one-subadmin-per-shop.
+    if (nextShopId && nextShopId !== currentShopId) {
+      const targetShop = await Shop.findById(nextShopId);
+      if (!targetShop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+
+      const alreadyAssignedSubAdmin = await User.findOne({
+        role: "subadmin",
+        shopId: nextShopId,
+        _id: { $ne: subAdmin._id },
+      }).select("_id");
+
+      if (alreadyAssignedSubAdmin) {
+        return res
+          .status(400)
+          .json({ message: "This shop already has a subadmin assigned" });
+      }
+
+      if (currentShopId) {
+        await Shop.findByIdAndUpdate(currentShopId, {
+          $pull: { subAdmins: subAdmin._id },
+        });
+      }
+
+      targetShop.subAdmins = [subAdmin._id];
+      await targetShop.save();
+      subAdmin.shopId = nextShopId;
+    }
+
     subAdmin.name = { en: name, ta: name_ta };
     if (email) subAdmin.email = email;
-    if (shopId) subAdmin.shopId = shopId;
+    if (shopId && nextShopId === currentShopId) subAdmin.shopId = shopId;
 
     await subAdmin.save();
 

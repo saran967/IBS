@@ -331,7 +331,7 @@ import { toast } from "react-toastify";
 import customFetch from "../../utils/customFetch.js";
 import { useLanguage } from "../../context/LanguageContext.jsx";
 
-const SubAdminList = ({ currentUser }) => {
+const SubAdminList = ({ currentUser, refreshKey = 0 }) => {
   const lang = useLanguage();
   const [subAdmins, setSubAdmins] = useState([]);
   const [shops, setShops] = useState([]);
@@ -403,7 +403,7 @@ const SubAdminList = ({ currentUser }) => {
     fetchShops();
     fetchSubAdmins();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
+  }, [lang, refreshKey]);
 
   // Search filter
   const filteredSubAdmins = subAdmins.filter((sub) => {

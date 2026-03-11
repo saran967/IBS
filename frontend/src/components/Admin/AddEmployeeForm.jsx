@@ -166,7 +166,7 @@ import {
 import { toast } from "react-toastify";
 import customFetch from "../../utils/customFetch.js";
 
-const AddEmployeeForm = ({ onClose, currentUser }) => {
+const AddEmployeeForm = ({ onClose, currentUser, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: "",
     name_ta: "",
@@ -223,7 +223,8 @@ const AddEmployeeForm = ({ onClose, currentUser }) => {
     try {
       await customFetch.post("/users/employee", formData);
       toast.success("Employee added successfully");
-      onClose();
+      if (onSuccess) onSuccess();
+      else if (onClose) onClose();
     } catch (err) {
       toast.error(err.response?.data?.msg || "Error adding employee");
     }

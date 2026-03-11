@@ -156,7 +156,7 @@ import {
 import { toast } from "react-toastify";
 import customFetch from "../../utils/customFetch.js";
 
-const AddSubAdminForm = ({ onClose }) => {
+const AddSubAdminForm = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: "",
     name_ta: "",
@@ -205,7 +205,8 @@ const AddSubAdminForm = ({ onClose }) => {
 
       await customFetch.post("/users/subadmin", payload);
       toast.success("Subadmin created successfully");
-      onClose();
+      if (onSuccess) onSuccess();
+      else if (onClose) onClose();
     } catch (err) {
       console.error("Error creating subadmin:", err);
       toast.error(err.response?.data?.message || "Error creating subadmin");

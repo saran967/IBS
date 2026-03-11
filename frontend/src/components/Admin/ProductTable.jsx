@@ -79,7 +79,6 @@ const ProductTable = ({
   const PAGE_LIMIT = pageSize || 10;
   const [selected, setSelected] = useState({});
   const [searchText, setSearchText] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [page, setPage] = useState(1);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -119,7 +118,7 @@ const ProductTable = ({
   // FILTER PRODUCTS
   // --------------------------------------------------
 
-  const makeCategoryKey = (c) => c?.en || "";
+  const selectedCategoryEn = (selectedCategory?.en || "").trim();
 
   const baseProducts = isSearching ? searchResults : products;
   const filteredProducts = baseProducts.filter((p) => {
@@ -130,7 +129,10 @@ const ProductTable = ({
       (p.productCode || "").toLowerCase().includes(text);
 
     const matchesCategory =
-      categoryFilter === "ALL" || p.category?.en === categoryFilter;
+      !selectedCategoryEn ||
+      String(p.category?.en || "")
+        .trim()
+        .toLowerCase() === selectedCategoryEn.toLowerCase();
 
     return matchesSearch && matchesCategory;
   });
@@ -149,8 +151,8 @@ const ProductTable = ({
     [filteredProducts],
   );
 
-  const searchProductsAPI = async (text, category) => {
-    if (!text && (!category || category === "ALL")) {
+  const searchProductsAPI = async (text, categoryEn) => {
+    if (!text && !categoryEn) {
       setIsSearching(false);
       setSearchResults([]);
       return;
@@ -164,8 +166,8 @@ const ProductTable = ({
       params.append("q", text.trim());
     }
 
-    if (category && category !== "ALL") {
-      params.append("category", category); //  string (category.en)
+    if (categoryEn) {
+      params.append("category", categoryEn);
     }
 
     console.log("Search Params:", params.toString());
@@ -192,8 +194,8 @@ const ProductTable = ({
   }, [sortedProducts, usingExternalPagination, currentPage]);
 
   useEffect(() => {
-    searchProductsAPI(searchText, categoryFilter);
-  }, [searchText, categoryFilter]);
+    searchProductsAPI(searchText, selectedCategoryEn);
+  }, [searchText, selectedCategoryEn]);
 
   // --------------------------------------------------
   // SELECT ALL
@@ -501,6 +503,10 @@ const ProductTable = ({
         <Autocomplete
           options={categories}
           getOptionLabel={(o) => o?.en || ""}
+          isOptionEqualToValue={(option, value) =>
+            (option?.en || "") === (value?.en || "") &&
+            (option?.ta || "") === (value?.ta || "")
+          }
           value={selectedCategory}
           onChange={(e, val) => setSelectedCategory(val)}
           renderInput={(params) => (

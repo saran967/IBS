@@ -24,7 +24,7 @@ import { toast } from "react-toastify";
 import customFetch from "../../utils/customFetch";
 import { useLanguage } from "../../context/LanguageContext";
 
-const EmployeeList = () => {
+const EmployeeList = ({ refreshKey = 0 }) => {
   const lang = useLanguage();
 
   const [employees, setEmployees] = useState([]);
@@ -88,7 +88,7 @@ const EmployeeList = () => {
     fetchEmployees();
     // if your API depends on language, add it to the endpoint or dependency list
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lang]);
+  }, [lang, refreshKey]);
 
   // Handle edit modal open – ONLY ADMIN CAN USE THIS
   const handleEditOpen = (employee) => {
