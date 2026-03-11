@@ -118,7 +118,8 @@ const ProductTable = ({
   // FILTER PRODUCTS
   // --------------------------------------------------
 
-  const selectedCategoryEn = (selectedCategory?.en || "").trim();
+  const selectedCategoryEn = selectedCategory?.en || "";
+  const normalizedSelectedCategoryEn = selectedCategoryEn.trim().toLowerCase();
 
   const baseProducts = isSearching ? searchResults : products;
   const filteredProducts = baseProducts.filter((p) => {
@@ -129,10 +130,10 @@ const ProductTable = ({
       (p.productCode || "").toLowerCase().includes(text);
 
     const matchesCategory =
-      !selectedCategoryEn ||
+      !normalizedSelectedCategoryEn ||
       String(p.category?.en || "")
         .trim()
-        .toLowerCase() === selectedCategoryEn.toLowerCase();
+        .toLowerCase() === normalizedSelectedCategoryEn;
 
     return matchesSearch && matchesCategory;
   });

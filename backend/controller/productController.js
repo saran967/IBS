@@ -219,23 +219,44 @@ export const searchProductsByCategory = async (req, res) => {
     console.log(req.query, "query data");
 
     const filter = {};
+    const andConditions = [];
+
+    const escapeRegex = (value = "") =>
+      String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     // -----------------------------------
     // TEXT SEARCH (name OR productCode)
     // -----------------------------------
     if (q) {
-      filter.$or = [
+      andConditions.push({
+        $or: [
         { "name.en": { $regex: q, $options: "i" } },
         { "name.ta": { $regex: q, $options: "i" } },
         { productCode: { $regex: q, $options: "i" } },
-      ];
+        ],
+      });
     }
 
     // -----------------------------------
     // CATEGORY FILTER (IMPORTANT)
     // -----------------------------------
     if (category) {
-      filter["category.en"] = category;
+      const normalizedCategory = String(category).trim();
+      const safeCategoryRegex = new RegExp(
+        `^\\s*${escapeRegex(normalizedCategory)}\\s*$`,
+        "i",
+      );
+
+      andConditions.push({
+        $or: [
+          { "category.en": { $regex: safeCategoryRegex } },
+          { "category.ta": { $regex: safeCategoryRegex } },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     const products = await Product.find(filter).sort({ createdAt: -1 });
